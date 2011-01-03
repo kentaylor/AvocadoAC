@@ -14,33 +14,30 @@ If it is less than gravity then device was rotated during sampling.
 * @author ken
 */
 public class CalcStatistics {
-	private int count;   // Number of numbers in the array.
+	private final int count;   // Number of numbers in the array.
 	private float sum[] ={0,0,0};  // The sum of all the items in the array.
 	private float sum_sqr[]={0,0,0};  // The sum of the squares of all the items.
 	private float max[] = {Float.NEGATIVE_INFINITY,Float.NEGATIVE_INFINITY,Float.NEGATIVE_INFINITY};  // Largest item seen.
 	private float min[] = {Float.POSITIVE_INFINITY,Float.POSITIVE_INFINITY,Float.POSITIVE_INFINITY};  // Smallest item seen.
 	private float mean[]= new float[3]; //the mean of the array data
 	
-	public CalcStatistics(float[] ArrayIn, int SizeOfArray) {
-		//ArrayIn is a 3D array i.e. X,Y,Z  of samples
-		count = SizeOfArray;
+	public CalcStatistics(float[] ArrayIn, int samples) {
+		//ArrayIn is a 3D array i.e. X,Y,Z  of a number of samples
 	//Summarise array passed in	
-		for(int i=0;i<SizeOfArray;i++){
+		count = samples;
+		for(int i=0;i<samples;i=i+3){//step through array in groups of 3
 			for(int j=0;j<3;j++){
-				sum[j]+=ArrayIn[(i * 3+j)];
-		//		sum[1]+=ArrayIn[(i * 3+1)];
-		//		sum[2]+=ArrayIn[(i * 3+2)];
-				sum_sqr[j]+=ArrayIn[(i * 3+j)]*ArrayIn[(i * 3+j)];
-		//		sum_sqr[1]+=ArrayIn[(i * 3+1)]*ArrayIn[(i * 3+1)];
-		//		sum_sqr[2]+=ArrayIn[(i * 3+2)]*ArrayIn[(i * 3+2)];
-				if (ArrayIn[i+j] > max[j])
-					max[j] = ArrayIn[i+j];
-				if (ArrayIn[i+j] < min[j])
-				      min[j] = ArrayIn[i+j];
+				float val = ArrayIn[(i + j)]; 
+				sum[j]+=val;
+				sum_sqr[j]+=val*val;
+				if (val > max[j])
+					max[j] = val;
+				if (val < min[j])
+				      min[j] = val;
 			}
 		}
 		for(int j=0;j<3;j++){
-			mean[j]= sum[j]/count;
+			mean[j]= sum[j]/samples;
 			}
 	}
 
@@ -63,7 +60,7 @@ public class CalcStatistics {
 	public float getVerticalAccel() {
 		float VerticalAccel=0;
 		for(int j=0;j<3;j++){
-//    	Log.i("sd","count"+count+" sum_sqr "+sum_sqr[j]+" mean "+mean[j]+" ");
+    	Log.i("sd","count"+count+" sum_sqr "+sum_sqr[j]+" mean "+mean[j]+" ");
 		VerticalAccel+=  mean[j]*mean[j];
 		}
 		VerticalAccel=(float) Math.sqrt( VerticalAccel);
@@ -75,7 +72,7 @@ public class CalcStatistics {
 	     // Value will be Double.NaN if count == 0.
 		float StandardDeviation[] = new float[3];
 		for(int j=0;j<3;j++){
-//        	Log.i("sd","count"+count+" sum_sqr "+sum_sqr[j]+" mean "+mean[j]+" ");
+        	Log.i("sd","count"+count+" sum_sqr "+sum_sqr[j]+" mean "+mean[j]+" ");
 			StandardDeviation[j]= (float) Math.sqrt( sum_sqr[j]/count - mean[j]*mean[j]);
 			}
 	   return StandardDeviation;
