@@ -26,7 +26,7 @@ import android.widget.Toast;
 
 public class SentToAccount extends Service{
 	private ProgressDialog dialog;
-	@Override
+	@Override 
 	public IBinder onBind(Intent arg0) {
 		// TODO Auto-generated method stub
 		return null;

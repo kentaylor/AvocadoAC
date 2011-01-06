@@ -35,7 +35,7 @@ import android.util.Log;
 public class UploaderService extends Service {
 	protected AccountManager accountManager;
 	private String MODEL="";
-    @Override
+    @Override 
     public void onStart(Intent intent, int startId) {
         super.onStart(intent, startId);
         

@@ -65,7 +65,7 @@ public class Classification implements Parcelable {
     public int isServiceStarted(){
     	return service;
     }
-    @Override
+    @Override 
     public String toString() {
 //        final String duration;
         final int length = (int) ((end - start) / 1000);
