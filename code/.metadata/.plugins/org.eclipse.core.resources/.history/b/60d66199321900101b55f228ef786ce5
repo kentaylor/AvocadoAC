@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest package="activity.classifier" android:versionCode="1" android:versionName="1" xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:icon="@drawable/icon" android:debuggable="true" android:label="Activity Classifier2">
+         <activity android:screenOrientation="portrait" android:label="Activity Classifier2" android:name=".ActivityRecorderActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+		<receiver android:permission="android.permission.RECEIVE_BOOT_COMPLETED" android:name=".BootReceiver"> 
+		  
+		     <intent-filter> 
+		         <action android:name="android.intent.action.BOOT_COMPLETED" /> 
+		         
+		     </intent-filter> 
+		 </receiver> 
+        <service android:label="Sensor Recorder Service" android:name=".RecorderService"/>
+        <service android:label="Activity Classification Service" android:name=".ClassifierService"/>
+    
+<service android:label="Uploader Service" android:name="UploaderService"></service>
+
+<activity android:label=".AccountActivity" android:name=".AccountActivity"></activity>
+
+<service android:name=".SentToAccount"></service>
+<service android:name=".StoreDatabase"></service>
+<activity android:name=".ScreenSettingActivity" android:label="Screen Lock Setting"></activity>
+</application>
+
+
+	<uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+ 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+ 	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />  
+ 	<uses-permission android:name="android.permission.GET_ACCOUNTS"></uses-permission>
+	<uses-permission android:name="android.permission.USE_CREDENTIALS"></uses-permission>
+ 	
+    <uses-sdk android:minSdkVersion="3" />
+
+
+</manifest>
