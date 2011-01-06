@@ -1,4 +1,0 @@
-INDEX VERSION 1.126+C:\Documents and Settings\ContextApi\code\.metadata\.plugins\org.eclipse.jdt.core
-1197254295.index
-1739145366.index
-4288515802.index
