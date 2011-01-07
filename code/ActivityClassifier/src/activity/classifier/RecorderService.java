@@ -345,84 +345,90 @@ public class RecorderService extends Service {
         MODEL=getModel();
         accountManager = AccountManager.get(getApplicationContext());
         Account[] accounts = accountManager.getAccountsByType("com.google");
-        final String account = accounts[0].name;
-        		
-        timer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-            	
-        		HttpClient client = new DefaultHttpClient();
-        	    final HttpPost post = new HttpPost("http://testingjungoo.appspot.com/activity");
-        	    final File file = getFileStreamPath("activityrecords.db");
-        	    final FileEntity entity = new FileEntity(file, "text/plain");
-        	      
-        	    ArrayList<String> activity = new ArrayList<String>();
-        	    ArrayList<String> date = new ArrayList<String>();
-        	    ArrayList<Integer> id = new ArrayList<Integer>();
-        	    //open database and check the un-posted data and send that data 
-        	    dbAdapter.open();
-        	    Cursor result =    dbAdapter.fetchActivityCheck1(0);
-        	      
-        	    for(result.moveToFirst(); result.moveToNext(); result.isAfterLast()) {
-        	    	id.add(Integer.parseInt(result.getString(0)));
-        	    	activity.add(result.getString(1));
-        	    	date.add(result.getString(2));
-        	    	  
-        	    	Log.i("acti",result.getString(1)+"");
-            	    Log.i("date",result.getString(2)+"");
-        	    }
-        	    Log.i("spe",activity.size()+"");
-        	    result.close();
-        	    dbAdapter.close();
-
-        	    if(activity.size()!=0){
-        	    	String message = "";
-        		    Log.i("size?",activity.size()+"");
-        		    for(int i = 0 ; i<activity.size();i++){
-        		     
-        		    	if(i==activity.size()){
-        		    		message +=  activity.get(i)+"&&"+date.get(i);
-        		    	}else{
-        		    		message +=  activity.get(i)+"&&"+date.get(i)+"##";
-        		    	}
-        		    }
-        		    String[] chunk = message.split("##");
-        		    Log.i("s",chunk.length+"");
-        		    for(int i=0;i<chunk.length;i++){
-        		    	Log.i("Series",chunk[i]);
-        		    }
-        		    try {
-        		    	DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        		    	Date systemdate = Calendar.getInstance().getTime();
-        		    	String reportDate = df.format(systemdate);
-        		    	post.setHeader("sysdate",reportDate);
-        		    	post.setHeader("size",activity.size()+"");
-        	  	        post.setHeader("message", message);
-        	  	        post.setHeader("UID", account);
-        	  	        post.setEntity(entity);
-        	   	    	
-        	  	        int code = new DefaultHttpClient().execute(post).getStatusLine().getStatusCode();
-        		        Log.i("m",message);
-        		        
-        		        dbAdapter.open();
-        		        for(int i=0;i<id.size();i++){
-        		        	dbAdapter.updateActivity(id.get(i), activity.get(i), date.get(i), 1,1);
-	            		}
-	            		dbAdapter.close();
-   		            } catch (IOException ex) {
-   		            	Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
-        		        dbAdapter.open();
-        		        for(int i=0;i<id.size();i++){
-        		        	dbAdapter.updateActivity(id.get(i), activity.get(i), date.get(i), 0,0);
-        		        }
-        		        dbAdapter.close();
-        		    }
-        	    }
-            }
-        }, 300000, 300000);
-        if(IM==1){
-        	startActivity(new Intent(this, AccountActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        
+        if (accounts!=null && accounts.length>0) {	// changed by umran, to avoid null exceptions when no accounts present 
+        	
+	        final String account = accounts[0].name;
+	        		
+	        timer.scheduleAtFixedRate(new TimerTask() {
+	            @Override
+	            public void run() {
+	            	
+	        		HttpClient client = new DefaultHttpClient();
+	        	    final HttpPost post = new HttpPost("http://testingjungoo.appspot.com/activity");
+	        	    final File file = getFileStreamPath("activityrecords.db");
+	        	    final FileEntity entity = new FileEntity(file, "text/plain");
+	        	      
+	        	    ArrayList<String> activity = new ArrayList<String>();
+	        	    ArrayList<String> date = new ArrayList<String>();
+	        	    ArrayList<Integer> id = new ArrayList<Integer>();
+	        	    //open database and check the un-posted data and send that data 
+	        	    dbAdapter.open();
+	        	    Cursor result =    dbAdapter.fetchActivityCheck1(0);
+	        	      
+	        	    for(result.moveToFirst(); result.moveToNext(); result.isAfterLast()) {
+	        	    	id.add(Integer.parseInt(result.getString(0)));
+	        	    	activity.add(result.getString(1));
+	        	    	date.add(result.getString(2));
+	        	    	  
+	        	    	Log.i("acti",result.getString(1)+"");
+	            	    Log.i("date",result.getString(2)+"");
+	        	    }
+	        	    Log.i("spe",activity.size()+"");
+	        	    result.close();
+	        	    dbAdapter.close();
+	
+	        	    if(activity.size()!=0){
+	        	    	String message = "";
+	        		    Log.i("size?",activity.size()+"");
+	        		    for(int i = 0 ; i<activity.size();i++){
+	        		     
+	        		    	if(i==activity.size()){
+	        		    		message +=  activity.get(i)+"&&"+date.get(i);
+	        		    	}else{
+	        		    		message +=  activity.get(i)+"&&"+date.get(i)+"##";
+	        		    	}
+	        		    }
+	        		    String[] chunk = message.split("##");
+	        		    Log.i("s",chunk.length+"");
+	        		    for(int i=0;i<chunk.length;i++){
+	        		    	Log.i("Series",chunk[i]);
+	        		    }
+	        		    try {
+	        		    	DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	        		    	Date systemdate = Calendar.getInstance().getTime();
+	        		    	String reportDate = df.format(systemdate);
+	        		    	post.setHeader("sysdate",reportDate);
+	        		    	post.setHeader("size",activity.size()+"");
+	        	  	        post.setHeader("message", message);
+	        	  	        post.setHeader("UID", account);
+	        	  	        post.setEntity(entity);
+	        	   	    	
+	        	  	        int code = new DefaultHttpClient().execute(post).getStatusLine().getStatusCode();
+	        		        Log.i("m",message);
+	        		        
+	        		        dbAdapter.open();
+	        		        for(int i=0;i<id.size();i++){
+	        		        	dbAdapter.updateActivity(id.get(i), activity.get(i), date.get(i), 1,1);
+		            		}
+		            		dbAdapter.close();
+	   		            } catch (IOException ex) {
+	   		            	Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
+	        		        dbAdapter.open();
+	        		        for(int i=0;i<id.size();i++){
+	        		        	dbAdapter.updateActivity(id.get(i), activity.get(i), date.get(i), 0,0);
+	        		        }
+	        		        dbAdapter.close();
+	        		    }
+	        	    }
+	            }
+	        }, 300000, 300000);
+	        
+	        if(IM==1){
+	        	startActivity(new Intent(this, AccountActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+	        }
         }
+        
         init();
         
     }
