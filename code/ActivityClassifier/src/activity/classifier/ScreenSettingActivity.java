@@ -25,8 +25,11 @@ import com.flurry.android.FlurryAgent;
 
 
 /**
- *
- * @author chris
+ * ScreensettingActivity is a UI Activity to set the screen lock.
+ * User have an option to decide to lock the screen or not.
+ * It is due to the bug related to onSensorChanged() in Android SensorEventListener API.
+ * Recommend to keep the screen on except the phone is NEXUS One.
+ * 
  */
 public class ScreenSettingActivity extends Activity implements OnCheckedChangeListener  {
 	private DbAdapter dbAdapter;

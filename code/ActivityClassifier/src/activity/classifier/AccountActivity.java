@@ -38,8 +38,15 @@ import com.flurry.android.FlurryAgent;
 
 
 /**
- *
- * @author chris
+ * AccountActivity class is used for sending user's google account nick-name in order to match the user's activity history
+ * in web server.
+ * It happens when the application runs at the very first time or next time if there is no account synced with the phone.
+ * AccountManager is an API to get a user's current account name.
+ * The type of account would be many depended on users, so it is required to specify the type as "com.google"
+ * in order to get google account.
+ * The number of google accounts would also be more than one but only single account is sent to the website for now.
+ * 
+ * Sending components : User account name, IMEI number, device model name
  */
 public class AccountActivity extends Activity  {
 	  private ProgressDialog dialog;
@@ -53,9 +60,9 @@ public class AccountActivity extends Activity  {
         
         accountManager = AccountManager.get(getApplicationContext());
         Account[] accounts = accountManager.getAccountsByType("com.google");
-        
+        dbAdapter = new DbAdapter(this);
         if(accounts.length!=0){
-        	dbAdapter = new DbAdapter(this);
+        	
 //        	dialog = ProgressDialog.show(AccountActivity.this, "Please wait",
 //                    "Submitting...", true);
         	sendpost(accounts[0].name);
@@ -66,6 +73,7 @@ public class AccountActivity extends Activity  {
         	Log.i("sendpost","elseok");
 //        	dialog = ProgressDialog.show(AccountActivity.this, "Please wait",
 //                    "Submitting...", true);
+        	sendpost("No account");
             finish();
         }
 

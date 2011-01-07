@@ -76,6 +76,9 @@ public class Sampler implements Runnable {
     public int getSize() {
         return nextSample;
     }
+    public int getCalSize() {
+        return nextSample*3;
+    }
 
     /** {@inheritDoc} */
 //    @Override
@@ -98,6 +101,7 @@ public class Sampler implements Runnable {
         data[7] = Math.max(data[7], values[2]);
         data[8] += values[2];
 
+        
         Log.i("accel",values[0]+" "+values[1]+" "+values[2]+" ");
         if (++nextSample == 128) {
             reader.stopSampling();

@@ -5,18 +5,12 @@
 
 package activity.classifier;
 
-import java.util.Map;
-
-import activity.classifier.CalcStatistics;
+import activity.classifier.common.Classifier;
 import activity.classifier.rpc.ActivityRecorderBinder;
 import android.app.Service;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.os.BatteryManager;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
@@ -26,6 +20,22 @@ import android.widget.Toast;
  *
  * @author chris
  * @modified by Justin
+ * 
+ * ClassifierService class is a Service analyse the sensor data to classify activities.
+ * RecorderService class invokes this class when sampling is done, 
+ * and send parameters (data collection, size of data array,battery status, etc) which is useful to determine the activities.
+ * After done with classification, it notices RecorderService about what activity is classified.
+ * 
+ * 
+ * Standard Deviation(sd) and Average values for accelerations(average) are used to classify Uncarried state.
+ * strStatus(battery status) is used to classify Charging state.
+ * 
+ * Other activities are classified through KNN algorithm (with K=1).
+ * (This KNN classification is implemented in Aggregator.java)
+ * 
+ * Local database is used to store some meaningful information such as sd, average, 
+ * lastaverage (the average of acceleration values when the activity is Uncarried, if the activity is not a Uncarried, then the values is 0.0).
+ * 
  */
 public class ClassifierService extends Service  implements Runnable {
 
@@ -34,6 +44,7 @@ public class ClassifierService extends Service  implements Runnable {
     String strStatus="";
     private boolean wakelock;
     boolean serviceStart=false;
+    private float[] calData;
     private float[] data;
     private int size;
     private static int next1 = 0;
@@ -56,6 +67,7 @@ public class ClassifierService extends Service  implements Runnable {
                 service.SetWakeLock(wakelock);
             } catch (RemoteException ex) {
 // put something here. At least log an error
+            	Log.e("connection", "Exception error occured in connection in ClassifierService class");
             }
             
             stopSelf();
@@ -72,8 +84,9 @@ public class ClassifierService extends Service  implements Runnable {
     @Override
     public void onStart(Intent intent, int startId) {
         super.onStart(intent, startId);
-
+        
         data = intent.getFloatArrayExtra("data");
+        calData = intent.getFloatArrayExtra("calData");
         strStatus=intent.getStringExtra("status");
         size = intent.getIntExtra("size", 128);
         wakelock = intent.getBooleanExtra("wake", true);
@@ -105,19 +118,20 @@ public class ClassifierService extends Service  implements Runnable {
         	float[] average={0,0,0};
         	boolean AlwaysFalse=false;
         	CalcStatistics calc;  // Computes stats for numbers entered by user.
-            calc = new CalcStatistics(data,size);
+            calc = new CalcStatistics(calData,size);
         	average=calc.getMean();
         	sd=calc.getStandardDeviation();
         	dbAdapter = new DbAdapter(this);
 
-        	if(next==0 && possibly_uncarried  &&(     			
-        			(lastaverage[0]-(0.05)>=average[0] && lastaverage[1]-(0.05)>=average[1] && lastaverage[2]-(0.05)>=average[2])
-        			||(lastaverage[0]+(0.05)<=average[0] && lastaverage[1]+(0.05)<=average[1] && lastaverage[2]+(0.05)<=average[2]))){
+        	if(next==0 && possibly_uncarried  &&
+        			(lastaverage[0]-(0.05)<=average[0] ||lastaverage[0]+(0.05)>=average[0]) &&
+    				(lastaverage[1]-(0.05)<=average[1] ||lastaverage[1]+(0.05)>=average[1]) &&
+    				(lastaverage[2]-(0.05)<=average[2] ||lastaverage[0]+(0.05)>=average[2])){
         		next=0;
         		next1=0;
         		possibly_uncarried=false;
         		step=false;
-        	}else if(sd[0]<0.05 && sd[1]<0.05 && sd[2]<0.05 && next==0){
+        	}else if(sd[0]<0.035 && sd[1]<0.035 && sd[2]<0.035 && next==0){
         		next++;
         		possibly_uncarried = true;
         		lastaverage=average;
@@ -125,8 +139,9 @@ public class ClassifierService extends Service  implements Runnable {
         		Log.i("STATUS", "1possibly uncarried  "+next);
         	}else if(next==1){
         		if(possibly_uncarried &&(
-    				(lastaverage[0]-(0.05)<=average[0] && lastaverage[1]-(0.05)<=average[1] && lastaverage[2]-(0.05)<=average[2])
-    				|| (lastaverage[0]+(0.05)>=average[0] && lastaverage[1]+(0.05)>=average[1] && lastaverage[2]+(0.05)>=average[2]))){
+        				(lastaverage[0]-(0.05)<=average[0] ||lastaverage[0]+(0.05)>=average[0]) &&
+        				(lastaverage[1]-(0.05)<=average[1] ||lastaverage[1]+(0.05)>=average[1]) &&
+        				(lastaverage[2]-(0.05)<=average[2] ||lastaverage[0]+(0.05)>=average[2]))){
         			next++;
         			step=true;
         		}else{
@@ -162,43 +177,7 @@ public class ClassifierService extends Service  implements Runnable {
 					   lastaverage[2]=0;
 					   next=0;
 				   }
-			       float oddTotal = 0, evenTotal = 0;
-			       float oddMin = Float.MAX_VALUE, oddMax = Float.MIN_VALUE;
-			       float evenMin = Float.MAX_VALUE, evenMax = Float.MIN_VALUE;
-	
-			       for (int i = 0; i < size; i++) {
-			    	   evenTotal += data[i * 3 + 1];
-			           oddTotal += data[i * 3 + 2];
-			           evenMin = Math.min(evenMin, data[i * 3 + 1]);
-			           oddMin = Math.min(oddMin, data[i * 3 + 2]);
-	
-			           evenMax = Math.max(evenMax, data[i * 3 + 1]);
-			           oddMax = Math.max(oddMax, data[i * 3 + 2]);
-			       }
-	
-			       final float[] points = {
-		    		   Math.abs(evenTotal / size),
-		    		   Math.abs(oddTotal / size),
-		    		   evenMax - evenMin,
-		    		   oddMax - oddMin
-			       };
-			    	
-			       float bestDistance = Float.MAX_VALUE;
-			       String bestActivity = "UNCLASSIFIED/UNKNOWN";
-			        
-			       for (Map.Entry<Float[], String> entry : RecorderService.model.entrySet()) {
-			    	   float distance = 0;
-	
-			           for (int i = 0; i < points.length; i++) {
-			        	   distance += Math.pow(points[i] - entry.getKey()[i], 2);
-			           }
-	
-			           if (distance < bestDistance) {
-			        	   bestDistance = distance;
-			        	   bestActivity = entry.getValue();
-			           }
-			       }
-			       classification = bestActivity;
+				   classification = new Classifier(RecorderService.model.entrySet()).classify(calData, data,size);
 			       next1=0;
 			   }
 			   else{

@@ -55,13 +55,24 @@ import android.util.Log;
  *
  * @author chris
  * modified by Justin
+ * 
+ * RecorderService is main background service.
+ * This service uses broadcast to get the information of charging status and screen status.
+ * The battery status is sent to ClassifierService to determine Charging state.
+ * The screen status is used when turns the screen on during sampling if Screen Lock setting is on.
+ * 
+ * It calls Sampler and AccelReader to sample for 6.4 sec (128 sample point every 50 msec), and it repeats every 30 sec.
+ * 
+ * Update activity history to web server every 5 min.
+ * If there is bad internet connection, then it does not send them and waits for next time.
+ * 
+ *
  */
 public class RecorderService extends Service {
     AccelReader reader;
     Sampler sampler;
 	final Aggregator aggregator = new Aggregator();
-    static final double DELTA = 0.25;
-    static final double THRESHOLD = 0.4;
+
     public String strStatus="";
     private String MODEL="";
     protected AccountManager accountManager;
@@ -77,11 +88,7 @@ public class RecorderService extends Service {
     private PowerManager.WakeLock wl2;
     private PowerManager.WakeLock wl3;
     private static float[] ignore={0};
-    private float[] values = new float[3];
-
-    //data size is 128*3 (xyz-axis)
     private float[] data = new float[384];
-    private volatile int nextSample = 0;
 
     boolean running;
    
@@ -93,7 +100,7 @@ public class RecorderService extends Service {
     private Boolean wlIsAcquired=false;
     PowerManager pm1;
 
-    //Broadcast receiver for battery manager
+    
     private BroadcastReceiver myScreenReceiver = new BroadcastReceiver(){
     	
     	public void onReceive(Context arg0, Intent arg1) {
@@ -106,7 +113,7 @@ public class RecorderService extends Service {
     		}
     	}
     };
-    
+  //Broadcast receiver for battery manager
     private BroadcastReceiver myBatteryReceiver = new BroadcastReceiver(){
 
 		  @Override
@@ -181,9 +188,10 @@ public class RecorderService extends Service {
             if(ignore[0]<=1){
             	ignore[0]++;
             }
-            intent.putExtra("data", sampler.getCalData());
+            intent.putExtra("data", sampler.getData());
+            intent.putExtra("calData", sampler.getCalData());
             intent.putExtra("status", strStatus);
-            intent.putExtra("size", sampler.getSize());
+            intent.putExtra("size", sampler.getCalSize());
             intent.putExtra("ignore", ignore);
             intent.putExtra("wake", wakelock);
             startService(intent);
@@ -267,7 +275,7 @@ public class RecorderService extends Service {
         MODEL=getModel();
         accountManager = AccountManager.get(getApplicationContext());
         Account[] accounts = accountManager.getAccountsByType("com.google");
-        final String account = accounts[0].name;
+        final String account = (accounts.length!=0 ? accounts[0].name : "No account");
         		
         timer.scheduleAtFixedRate(new TimerTask() {
             @Override
