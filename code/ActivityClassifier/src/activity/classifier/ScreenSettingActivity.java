@@ -121,6 +121,14 @@ public class ScreenSettingActivity extends Activity implements OnCheckedChangeLi
 			}
 		}
 	}
+	
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        unbindService(connection);
+
+    }
 
 	
 

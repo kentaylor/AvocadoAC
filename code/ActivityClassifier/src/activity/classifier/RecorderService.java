@@ -10,14 +10,12 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
@@ -28,8 +26,13 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 
+import activity.classifier.common.ModelReader;
+import activity.classifier.common.accel.AccelReader;
+import activity.classifier.common.accel.AccelReaderFactory;
+import activity.classifier.common.accel.Sampler;
+import activity.classifier.common.aggregator.Aggregator;
+import activity.classifier.rpc.ActivityRecorderBinder;
 import activity.classifier.rpc.Classification;
-import activity.classifier.rpc.*;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.Service;
@@ -54,7 +57,9 @@ import android.util.Log;
  * modified by Justin
  */
 public class RecorderService extends Service {
-
+    AccelReader reader;
+    Sampler sampler;
+	final Aggregator aggregator = new Aggregator();
     static final double DELTA = 0.25;
     static final double THRESHOLD = 0.4;
     public String strStatus="";
@@ -87,56 +92,6 @@ public class RecorderService extends Service {
     private Boolean wl2IsAcquired=false;
     private Boolean wlIsAcquired=false;
     PowerManager pm1;
-    
-    private final HashMap<String, HashMap<String, Double>> scores
-            = new HashMap<String, HashMap<String, Double>>() {{
-        put("", new HashMap<String, Double>() {{
-            put("null", 0.5d);
-            put("CLASSIFIED", 0.5d);
-//            put("UNCLASSIFIED", 0.333d);
-        }});
-
-        put("CLASSIFIED", new HashMap<String, Double>() {{
-//            put("null", 0.1d);
-            put("CHARGING", 0.1d);
-            put("UNCARRIED", 0.1d);
-            put("END", 0.1d);
-            put("WALKING", 0.1d);
-            put("PADDLING", 0.1d);
-            put("TRAVELLING", 0.1d);
-            put("ACTIVE", 0.1d);
-            put("DANCING", 0.1d);
-            put("VEHICLE",0.1d);
-            put("IDLE", 0.1d);
-//            put("WAITING", 0.1428d);
-        }});
-       
-
-        put("CLASSIFIED/WALKING", new HashMap<String, Double>() {{
-//            put("null", 0.5d);
-//            put("STAIRS",0.5d);
-        }});
-
-        put("CLASSIFIED/VEHICLE", new HashMap<String, Double>() {{
-//            put("null", 0.333d);
-//            put("CAR", 0.333d);
-//            put("BUS", 0.333d);
-        }});
-
-        put("CLASSIFIED/IDLE", new HashMap<String, Double>() {{
-            put("null", 0.333d);
-            put("STANDING", 0.333d);
-            put("SITTING", 0.333d);
-        }});
-
-        put("CLASSIFIED/WALKING/STAIRS", new HashMap<String, Double>() {{
-//            put("null", 0.333d);
-//            put("UP", 0.333d);
-//            put("DOWN", 0.333d);
-        }});
-      
-      
-    }};
 
     //Broadcast receiver for battery manager
     private BroadcastReceiver myScreenReceiver = new BroadcastReceiver(){
@@ -195,23 +150,46 @@ public class RecorderService extends Service {
         	
         }
     };
-
-    private final Runnable sampleRunnable = new Runnable() {
+    private final Runnable updateRunnable = new Runnable() {
 
         public void run() {
-        		sample();
+            try {
+				updateButton();
+			} catch (ParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+            
+            handler.postDelayed(updateRunnable, 500);
         }
-        
     };
 
     private final Runnable registerRunnable = new Runnable() {
 
         public void run() {
-            register();
+            //Log.i(getClass().getName(), "Registering");
+            sampler.start();
+            
+            handler.postDelayed(registerRunnable, 30000);
         }
 
     };
+    private final Runnable analyseRunnable = new Runnable() {
 
+        public void run() {
+            final Intent intent = new Intent(RecorderService.this, ClassifierService.class);
+            if(ignore[0]<=1){
+            	ignore[0]++;
+            }
+            intent.putExtra("data", sampler.getCalData());
+            intent.putExtra("status", strStatus);
+            intent.putExtra("size", sampler.getSize());
+            intent.putExtra("ignore", ignore);
+            intent.putExtra("wake", wakelock);
+            startService(intent);
+        }
+
+    };
     private final Runnable screenRunnable = new Runnable() {
 
         public void run() {
@@ -248,66 +226,7 @@ public class RecorderService extends Service {
 
 
 
-    private final SensorEventListener accelListener = new SensorEventListener() {
 
-        /** {@inheritDoc} */
-        public void onSensorChanged(final SensorEvent event) {
-            setAccelValues(event.values);
-//            Log.i("onsensor",event.values+"");
-        }
-
-        /** {@inheritDoc} */
-        public void onAccuracyChanged(final Sensor sensor, final int accuracy) {
-            // Don't really care
-        }
-
-    };
-
-    public void setAccelValues(float[] accelValues) {
-        this.values = new float[]{
-    		accelValues[SensorManager.DATA_X],
-            accelValues[SensorManager.DATA_Y],
-            accelValues[SensorManager.DATA_Z]
-        };
-    }
-    
-    //sampling accelerometer data per 50ms
-    public void sample() {
-        data[(nextSample * 3) % 384] = values[0];
-        data[(nextSample * 3 + 1) % 384] = values[1];
-        data[(nextSample * 3 + 2) % 384] = values[2];
-        Log.i("accel50",values[0]+" "+values[1]+" "+values[2]);
-	        //when data is reached 128 data in each axis
-	        if (++nextSample % 64 == 0 && nextSample >= 128) {
-	        	Log.i("accel50","End");
-	            float[] cache = new float[384];
-	            System.arraycopy(data, 0, cache, 0, 384);
-	        	Log.i("next",nextSample+"");
-	        	unregister();
-            	analyse(cache,strStatus,128);
-            	return;
-	        }
-//        }
-	        handler.postDelayed(sampleRunnable, 50);
-       
-    }
-
-    public void analyse(float[] data, String status, int size) {
-
-        final Intent intent = new Intent(this, ClassifierService.class);
-        if(ignore[0]<=1){
-        	ignore[0]++;
-        }
-        intent.putExtra("data", data);
-        intent.putExtra("status", status);
-        intent.putExtra("size", size);
-        intent.putExtra("ignore", ignore);
-        intent.putExtra("wake", wakelock);
-//        intent.putExtra("lastClass", classifications.get(classifications.size()-1).getNiceClassification());
-        startService(intent);
-
-//        Log.i("analyse","--exit--");
-    }
     @Override
     public IBinder onBind(Intent arg0) {
         return binder;
@@ -340,7 +259,10 @@ public class RecorderService extends Service {
         IM = (int) Float.valueOf(result5.getString(1).trim()).floatValue();;
         result5.close();
         dbAdapter.close();
-
+        
+        reader = new AccelReaderFactory().getReader(this);
+        sampler = new Sampler(handler, reader, analyseRunnable);
+        
         timer = new Timer("Data logger");
         MODEL=getModel();
         accountManager = AccountManager.get(getApplicationContext());
@@ -452,21 +374,7 @@ public class RecorderService extends Service {
     	String dbfile ="data/data/activity.classifier/files/activityrecords.db";
     	copy("data/data/activity.classifier/databases/activityrecords.db",dbfile);
     	
-    	InputStream is = null;
-        try {
-            is = getResources().openRawResource(R.raw.basic_model);
-            model = (Map<Float[], String>) new ObjectInputStream(is).readObject();
-        } catch (Exception ex) {
-            Log.e(getClass().getName(), "Unable to load model", ex);
-        } finally {
-            if (is != null) {
-                try {
-                    is.close();
-                } catch (IOException ex) {
-                    // Don't care
-                }
-            }
-        }
+    	model = ModelReader.getModel(this, R.raw.basic_model);
 
         manager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         handler.postDelayed(registerRunnable, 1000);
@@ -478,19 +386,7 @@ public class RecorderService extends Service {
         
     }
 
-    private final Runnable updateRunnable = new Runnable() {
 
-        public void run() {
-            try {
-				updateButton();
-			} catch (ParseException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-            
-            handler.postDelayed(updateRunnable, 500);
-        }
-    };
     
     final List<Classification> adapter = new ArrayList<Classification>();
     String lastAc = "NONE";
@@ -534,52 +430,17 @@ public class RecorderService extends Service {
 	    } 
 	        
 	}
-	
-    //register calls itself every 30sec which means the app classfy activity every 30sec
-    void register() {
-        //Log.i(getClass().getName(), "Registering");
-    	
-        nextSample = 0;
-        manager.registerListener(accelListener,
-                manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
-                SensorManager.SENSOR_DELAY_FASTEST);
-        handler.postDelayed(sampleRunnable, 50);
-        handler.postDelayed(registerRunnable, 30000);
-        
-    }
+
     ArrayList<String> activity = new ArrayList<String>();
     ArrayList<String> date = new ArrayList<String>();
     //post call itself every 5min,
 
-    void unregister() {
-        manager.unregisterListener(accelListener);
-    }
-
     
     //this is for Chris's classification ()
     void updateScores(final String classification) {
-        String path = "";
-        if(!classification.equals("CLASSIFIED/WAITING")){
-	        for (String part : classification.split("/")) {
-	            if (!scores.containsKey(path)) {
-	                throw new RuntimeException("Path not found: " + path
-	                        + " (classification: " + classification + ")");
-	            }
-	            updateScores(scores.get(path), part);
-	            path = path + (path.length() == 0 ? "" : "/") + part;
-	        }
-	
-	        if (scores.containsKey(path)) {
-	            // This classification has children which we're not using
-	            // e.g. we've received CLASSIFIED/WALKING, but we're not walking
-	            //      up or down stairs
-	            if(classification.equalsIgnoreCase("classified/charging")
-	            		||classification.equalsIgnoreCase("classified/uncarried")){
-	            	
-	            }else
-	            updateScores(scores.get(path), "null");
-	        }
-	        final String best = getClassification();
+    	aggregator.addClassification(classification);
+        if(!aggregator.getClassification().equals("CLASSIFIED/WAITING")){
+	        final String best = aggregator.getClassification();
 	        String[] cl = classification.split("/");
 	        
 		        if (!classifications.isEmpty() && best.equals(classifications
@@ -589,53 +450,6 @@ public class RecorderService extends Service {
 		            classifications.add(new Classification(best, System.currentTimeMillis(),service));
 		        }
 //            }
-        }
-    }
-    private String getClassification() {
-        String path = "";
-
-        do {
-            final Map<String, Double> map = scores.get(path);
-            double best = THRESHOLD;
-            String bestPath = "null";
-	            for (Map.Entry<String, Double> entry : map.entrySet()) {
-	                if (entry.getValue() >= best) {
-	                    best = entry.getValue();
-	                    bestPath = entry.getKey();
-	                }
-	            }
-	
-	            path = path + (path.length() == 0 ? "" : "/") + bestPath;
-	            Log.i("PATH",path);
-	            Log.i("bestPATH",bestPath);
-//            }
-        } while (scores.containsKey(path));
-
-        return path.replaceAll("(^CLASSIFIED)?/?null$", "");
-    }
-
-    void updateScores(final Map<String, Double> map, final String target) {
-    	
-        for (Map.Entry<String, Double> entry : map.entrySet()) {
-            Log.d(getClass().getName(), "Score for " + entry.getKey() + " was: " + entry.getValue());
-            entry.setValue(entry.getValue() * (1 - DELTA));
-
-            if (entry.getKey().equals(target)) {
-                entry.setValue(entry.getValue() + DELTA);
-            }
-            if (target.equalsIgnoreCase("uncarried") ||target.equalsIgnoreCase("charging")) {
-                if (entry.getKey().equals(target)) {
-                	entry.setValue((double) 1);
-                }
-            
-            }else{
-            	for(Map.Entry<String, Double> entry1 : map.entrySet()){
-            		if (entry1.getKey().equalsIgnoreCase("uncarried") ||entry1.getKey().equalsIgnoreCase("charging")) {
-                        entry1.setValue((double) 0);
-                    }
-            	}
-            }
-            Log.d(getClass().getName(), "Score for " + entry.getKey() + " is now: " + entry.getValue());
         }
     }
 
@@ -649,16 +463,17 @@ public class RecorderService extends Service {
         	ActivityRecorderActivity.serviceIsRunning=false;
 
             running = false;
+            if (sampler != null) {
+                sampler.stop();
+            }
             ignore[0] = 0;
             service = 0;
             dbAdapter.open();
             dbAdapter.updateStart(1, 1+"");
             dbAdapter.close();
-            handler.removeCallbacks(sampleRunnable);
             handler.removeCallbacks(registerRunnable);
             handler.removeCallbacks(updateRunnable);
             handler.removeCallbacks(screenRunnable);
-            unregister();
             this.unregisterReceiver(myBatteryReceiver);
             timer.cancel();
            

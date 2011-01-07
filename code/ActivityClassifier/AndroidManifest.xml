@@ -17,12 +17,12 @@
         <service android:label="Sensor Recorder Service" android:name=".RecorderService"/>
         <service android:label="Activity Classification Service" android:name=".ClassifierService"/>
     
-<service android:label="Uploader Service" android:name="UploaderService"></service>
+
 
 <activity android:label=".AccountActivity" android:name=".AccountActivity"></activity>
 
-<service android:name=".SentToAccount"></service>
-<service android:name=".StoreDatabase"></service>
+
+
 <activity android:name=".ScreenSettingActivity" android:label="Screen Lock Setting"></activity>
 </application>
 

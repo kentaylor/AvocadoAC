@@ -43,7 +43,8 @@ public class RealAccelReader implements AccelReader {
 //        @Override
         public void onSensorChanged(final SensorEvent event) {
             values = new float[]{
-                event.values[SensorManager.DATA_Y],
+        		event.values[SensorManager.DATA_X],
+            	event.values[SensorManager.DATA_Y],
                 event.values[SensorManager.DATA_Z]
             };
         }
@@ -56,16 +57,12 @@ public class RealAccelReader implements AccelReader {
 
     };
 
-    float[] values = new float[]{0, 0};
+    float[] values = new float[]{0, 0, 0};
     private SensorManager manager;
-    private PowerManager.WakeLock wl;
 
     public RealAccelReader(final Context context) {
-        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-        wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Activity recorder");
         manager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
 
-        wl.acquire();
     }
 
     public void startSampling() {
@@ -84,7 +81,6 @@ public class RealAccelReader implements AccelReader {
 
     @Override
     protected void finalize() throws Throwable {
-        wl.release();
     }
 
 }
