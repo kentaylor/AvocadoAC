@@ -8,7 +8,7 @@
         android:id="@+id/togglebutton"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:text="@string/service_enabled"
+        android:text="@string/service_disabled"
         android:layout_marginTop="5dip"
         android:layout_marginBottom="5dip"
         />

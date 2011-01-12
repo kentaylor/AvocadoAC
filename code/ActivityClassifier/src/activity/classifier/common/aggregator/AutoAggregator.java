@@ -55,7 +55,7 @@ public class AutoAggregator extends Aggregator implements Runnable {
 
     /** {@inheritDoc} */
     public void run() {
-        addClassification(classifier.classify(sampler.getCalData(),sampler.getData(),128));
+        addClassification(classifier.classify(sampler.getData(),128));
         callback.run();
     }
 

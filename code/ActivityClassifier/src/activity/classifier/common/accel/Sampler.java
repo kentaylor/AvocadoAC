@@ -22,6 +22,8 @@
 
 package activity.classifier.common.accel;
 
+import activity.classifier.Calibration;
+import activity.classifier.rpc.Classification;
 import android.os.Handler;
 import android.util.Log;
 
@@ -38,10 +40,12 @@ public class Sampler implements Runnable {
     private final Handler handler;
     private final AccelReader reader;
     private final Runnable finishedRunnable;
-
-    private final float[] data = new float[9];
-    private final float[] calData = new float[384];
+    
+    
+    
+    private final float[] data = new float[384];
     private int nextSample;
+    
 
     public Sampler(final Handler handler, final AccelReader reader,
             final Runnable finishedRunnable) {
@@ -51,33 +55,18 @@ public class Sampler implements Runnable {
     }
 
     public void start() {
-        data[0] = Float.MAX_VALUE;
-        data[1] = Float.MIN_VALUE;
-        data[2] = 0;
-        data[3] = Float.MAX_VALUE;
-        data[4] = Float.MIN_VALUE;
-        data[5] = 0;
-        data[6] = Float.MAX_VALUE;
-        data[7] = Float.MIN_VALUE;
-        data[8] = 0;
         nextSample = 0;
-
         reader.startSampling();
 
         handler.postDelayed(this, 50);
     }
 
+
     public float[] getData() {
         return data;
     }
-    public float[] getCalData() {
-        return calData;
-    }
     public int getSize() {
         return nextSample;
-    }
-    public int getCalSize() {
-        return nextSample*3;
     }
 
     /** {@inheritDoc} */
@@ -85,24 +74,11 @@ public class Sampler implements Runnable {
     public void run() {
         final float[] values = reader.getSample();
 
-        calData[(nextSample * 3) % 384] = values[0];
-        calData[(nextSample * 3 + 1) % 384] = values[1];
-        calData[(nextSample * 3 + 2) % 384] = values[2];
+        data[(nextSample * 3) % 384] = values[0];
+        data[(nextSample * 3 + 1) % 384] = values[1];
+        data[(nextSample * 3 + 2) % 384] = values[2];
         
-        data[0] = Math.min(data[0], values[0]);
-        data[1] = Math.max(data[1], values[0]);
-        data[2] += values[0];
-
-        data[3] = Math.min(data[3], values[1]);
-        data[4] = Math.max(data[4], values[1]);
-        data[5] += values[1];
-        
-        data[6] = Math.min(data[6], values[2]);
-        data[7] = Math.max(data[7], values[2]);
-        data[8] += values[2];
-
-        
-        Log.i("accel",values[0]+" "+values[1]+" "+values[2]+" ");
+//        Log.i("accel",values[0]+" "+values[1]+" "+values[2]+" ");
         if (++nextSample == 128) {
             reader.stopSampling();
             finishedRunnable.run();

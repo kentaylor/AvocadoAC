@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <menu 
 		xmlns:android="http://schemas.android.com/apk/res/android">
+
+        <item android:id="@+id/showCalibration"
+        android:title="Calibration Details">
+        </item> 
+        <item android:id="@+id/resetCalibration"
+        android:title="Reset Calibration">
+        </item> 
+        <item android:id="@+id/link"
+        android:title="See My History">
+        </item>
+        <item android:id="@+id/wake"
+        android:title="Screen Lock">
+        </item> 
         <item android:id="@+id/deletedata"
         android:title="Delete Database"
         android:alphabeticShortcut="sss">
@@ -8,10 +21,5 @@
         <item android:id="@+id/copydata"
         android:title="Copy Database to SDcard">
         </item>
-        <item android:id="@+id/link"
-        android:title="See My History">
-        </item>
-        <item android:id="@+id/wake"
-        android:title="Screen Lock">
-        </item> 
+
 </menu>

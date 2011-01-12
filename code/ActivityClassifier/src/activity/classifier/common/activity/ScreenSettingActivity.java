@@ -3,8 +3,13 @@
  * and open the template in the editor.
  */
 
-package activity.classifier;
+package activity.classifier.common.activity;
 
+import activity.classifier.R;
+import activity.classifier.R.id;
+import activity.classifier.R.layout;
+import activity.classifier.common.repository.OptionQueries;
+import activity.classifier.common.service.RecorderService;
 import activity.classifier.rpc.ActivityRecorderBinder;
 import android.app.Activity;
 import android.content.ComponentName;
@@ -32,9 +37,17 @@ import com.flurry.android.FlurryAgent;
  * 
  */
 public class ScreenSettingActivity extends Activity implements OnCheckedChangeListener  {
-	private DbAdapter dbAdapter;
+	
 	ActivityRecorderBinder service = null;
-	CheckBox c1;
+	
+	CheckBox checkBox;
+	
+	private int isWakeLockSet;
+	
+	private OptionQueries optionQuery;
+	
+	private boolean wakelock;
+	
     private final ServiceConnection connection = new ServiceConnection() {
 
         public void onServiceConnected(ComponentName arg0, IBinder arg1) {
@@ -42,6 +55,7 @@ public class ScreenSettingActivity extends Activity implements OnCheckedChangeLi
             try {
             	Log.i("WAKE","connection");
 				service.SetWakeLock(wakelock);
+				Log.i("TESTTESTTEST",wakelock+"2");
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -54,28 +68,27 @@ public class ScreenSettingActivity extends Activity implements OnCheckedChangeLi
 		}
 
     };
-    public int setWL;
+    
     @Override
     public void onCreate(final Bundle icicle) {
         super.onCreate(icicle);
         setContentView(R.layout.setting);
-        c1 = (CheckBox)findViewById(R.id.check1);
-        c1.setOnCheckedChangeListener(this);
-        bindService(new Intent(this, RecorderService.class),
-                connection, BIND_AUTO_CREATE);
-        dbAdapter = new DbAdapter(this);
-        dbAdapter.open();
-        Cursor result6 =    dbAdapter.fetchStart(8);
-        setWL = (int) Float.valueOf(result6.getString(1).trim()).floatValue();;
-        result6.close();
-    	dbAdapter.close();
-    	if(setWL==1){
+        checkBox = (CheckBox)findViewById(R.id.check1);
+        checkBox.setOnCheckedChangeListener(this);
+
+    	
+    	optionQuery = new OptionQueries(this);
+    	isWakeLockSet = optionQuery.getWakeLockState();
+    	if(isWakeLockSet==0){
     		this.wakelock=false;
     		
     	}else{
     		this.wakelock=true;
     	}
-    	c1.setChecked(wakelock);
+    	Log.i("TESTTESTTEST",wakelock+"1");
+        bindService(new Intent(this, RecorderService.class),
+                connection, BIND_AUTO_CREATE);
+    	checkBox.setChecked(wakelock);
     }
 
    
@@ -97,17 +110,15 @@ public class ScreenSettingActivity extends Activity implements OnCheckedChangeLi
     }
 
 
-    private boolean wakelock;
+    
 	public void onCheckedChanged(CompoundButton arg0, boolean arg1) {
 		// TODO Auto-generated method stub
-		dbAdapter = new DbAdapter(this);
 		if(arg0.getId() == R.id.check1){
 			if(arg1){
 				wakelock=arg1;
 				Toast.makeText(this, "Screen Locked On", Toast.LENGTH_SHORT).show();
-		    	dbAdapter.open();
-	    		dbAdapter.updateStart(8, 0+"");
-		    	dbAdapter.close();
+				optionQuery.setWakeLockState("1");
+				
 		    	unbindService(connection);
 	            bindService(new Intent(this, RecorderService.class),
 	                    connection, BIND_AUTO_CREATE);
@@ -115,9 +126,9 @@ public class ScreenSettingActivity extends Activity implements OnCheckedChangeLi
 			else{
 				wakelock=arg1;
 				Toast.makeText(this, "Screen Locked Off", Toast.LENGTH_SHORT).show();
-		    	dbAdapter.open();
-	    		dbAdapter.updateStart(8, 1+"");
-		    	dbAdapter.close();
+				
+				optionQuery.setWakeLockState("0");
+				
 		    	unbindService(connection);
 	            bindService(new Intent(this, RecorderService.class),
 	                    connection, BIND_AUTO_CREATE);

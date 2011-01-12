@@ -20,5 +20,12 @@ interface ActivityRecorderBinder {
     List<Classification> getClassifications();
     
     void SetWakeLock(boolean wakelock);
+    
+    
+    void SetAccountStateToastString(String toastString);
+    
+    void SetPhoneInformation(String AccountName, String ModelName, String IMEI);
+    
+    
 
 }

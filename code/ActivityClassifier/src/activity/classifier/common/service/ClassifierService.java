@@ -3,14 +3,20 @@
  * and open the template in the editor.
  */
 
-package activity.classifier;
+package activity.classifier.common.service;
 
+import activity.classifier.CalcStatistics;
+import activity.classifier.Calibration;
+import activity.classifier.R;
+import activity.classifier.R.string;
 import activity.classifier.common.Classifier;
+import activity.classifier.common.repository.OptionQueries;
 import activity.classifier.rpc.ActivityRecorderBinder;
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.database.Cursor;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
@@ -40,22 +46,25 @@ import android.widget.Toast;
 public class ClassifierService extends Service  implements Runnable {
 
 	ActivityRecorderBinder service = null;
-    String classification;
-    String strStatus="";
-    private boolean wakelock;
-    boolean serviceStart=false;
-    private float[] calData;
+    private String classification;
+
+    private String strStatus="";
     private float[] data;
     private int size;
-    private static int next1 = 0;
-    private static int next = 0;
-    private static boolean step = false;
-    private static boolean possibly_uncarried = false;
-    private static float[] lastaverage={0,0,0};
-    float[] sum_sqr ={0,0,0};
-    float[] sum = {0,0,0};
-    private DbAdapter dbAdapter;
     private float[] ignore={0};
+    private String LastClassificationName;
+    
+    private static boolean possibly_uncarried = false;
+    private static boolean keepLastAvgAccel = false;
+    private static float[] lastaverage = {0, 0, 0};
+    private boolean uncarried;
+    
+    private int isCalibrated;
+    private Calibration calibration;
+    
+    private float[] ssd = new float[3];
+    
+    private OptionQueries optionQuery;
     
     private ServiceConnection connection = new ServiceConnection() {
 
@@ -64,9 +73,8 @@ public class ClassifierService extends Service  implements Runnable {
 
             try {
                 service.submitClassification(classification);
-                service.SetWakeLock(wakelock);
+                
             } catch (RemoteException ex) {
-// put something here. At least log an error
             	Log.e("connection", "Exception error occured in connection in ClassifierService class");
             }
             
@@ -85,12 +93,14 @@ public class ClassifierService extends Service  implements Runnable {
     public void onStart(Intent intent, int startId) {
         super.onStart(intent, startId);
         
-        data = intent.getFloatArrayExtra("data");
-        calData = intent.getFloatArrayExtra("calData");
         strStatus=intent.getStringExtra("status");
+        data = intent.getFloatArrayExtra("data");
         size = intent.getIntExtra("size", 128);
-        wakelock = intent.getBooleanExtra("wake", true);
         ignore=intent.getFloatArrayExtra("ignore");
+        LastClassificationName = intent.getStringExtra("LastClassificationName");
+
+        uncarried =  false;
+
         new Thread(this).start();
     }
     
@@ -114,71 +124,105 @@ public class ClassifierService extends Service  implements Runnable {
         }
     	//---------------------Classification for the rest of activities-------------------------//
 //        else{
+        	optionQuery = new OptionQueries(this);
+	        isCalibrated = optionQuery.getCalibrationState();
+	        ssd[0] = optionQuery.getStandardDeviationX();
+        	ssd[1] = optionQuery.getStandardDeviationY();
+    		ssd[2] = optionQuery.getStandardDeviationZ();
+        
         	float[] sd= new float[3];
         	float[] average={0,0,0};
-        	boolean AlwaysFalse=false;
-        	CalcStatistics calc;  // Computes stats for numbers entered by user.
-            calc = new CalcStatistics(calData,size);
-        	average=calc.getMean();
-        	sd=calc.getStandardDeviation();
-        	dbAdapter = new DbAdapter(this);
 
-        	if(next==0 && possibly_uncarried  &&
-        			(lastaverage[0]-(0.05)<=average[0] ||lastaverage[0]+(0.05)>=average[0]) &&
-    				(lastaverage[1]-(0.05)<=average[1] ||lastaverage[1]+(0.05)>=average[1]) &&
-    				(lastaverage[2]-(0.05)<=average[2] ||lastaverage[0]+(0.05)>=average[2])){
-        		next=0;
-        		next1=0;
-        		possibly_uncarried=false;
-        		step=false;
-        	}else if(sd[0]<0.035 && sd[1]<0.035 && sd[2]<0.035 && next==0){
-        		next++;
-        		possibly_uncarried = true;
-        		lastaverage=average;
-        		next1=1;
-        		Log.i("STATUS", "1possibly uncarried  "+next);
-        	}else if(next==1){
-        		if(possibly_uncarried &&(
-        				(lastaverage[0]-(0.05)<=average[0] ||lastaverage[0]+(0.05)>=average[0]) &&
-        				(lastaverage[1]-(0.05)<=average[1] ||lastaverage[1]+(0.05)>=average[1]) &&
-        				(lastaverage[2]-(0.05)<=average[2] ||lastaverage[0]+(0.05)>=average[2]))){
-        			next++;
-        			step=true;
-        		}else{
-        			next=0;
-        			next1=0;
-      			}
-        		Log.i("STATUS", "2possibly uncarried  "+next);
+        	CalcStatistics calc;  // Computes stats for numbers entered by user.
+            calc = new CalcStatistics(data,size);
+        	
+            average=calc.getMean();
+        	sd=calc.getStandardDeviation();
+        	
+        	if(isCalibrated==0){
+        		calibration= new Calibration();
+        		
+	        	if(LastClassificationName!=null && LastClassificationName.equalsIgnoreCase("uncarried")){
+	        		
+	        		Log.i("Calibration","Calibration "+(5-(calibration.getCount()-1))+ " to go");
+	        		
+		        	calibration.doCalibration(average, sd);
+		        	if(calibration.getCount() == 5){
+		        		float[] tempSSD = new float[3];
+		        		tempSSD = calibration.getSSD();
+		        		
+		        		for(int i=0;i<3;i++){
+		        			ssd[i]=tempSSD[i];
+		        		}
+		        		
+	        			Log.i("Calibration","saved in datastore");
+	        			optionQuery.setCalibrationState("1");
+	        			optionQuery.setStandardDeviationX(ssd[0]+"");
+	        			optionQuery.setStandardDeviationY(ssd[1]+"");
+	        			optionQuery.setStandardDeviationZ(ssd[2]+"");
+	        			
+		        	}
+	        	}else{
+	        		Log.i("Calibration","Canceled");
+	        		calibration.setCount(0);
+	        	}
         	}
         	
-        	dbAdapter.open();
-        	dbAdapter.insertTestAV(sd[0]+"",sd[1]+"",sd[2]+"",lastaverage[0]+"", lastaverage[1]+"", lastaverage[2]+"", average[0]+"", average[1]+"", average[2]+"");
-        	dbAdapter.close();
+        	Log.i("Calibration","ssd[0] : "+ssd[0]+", "+"ssd[1] : "+ssd[1]+", "+"ssd[2] : "+ssd[2]);
+
+        	if(sd[0]<4*ssd[0] && sd[1]<4*ssd[1] && sd[2]<4*ssd[2] && !possibly_uncarried){
+        		
+        		lastaverage[0]=average[0];
+        		lastaverage[1]=average[1];
+        		lastaverage[2]=average[2];
+        		
+        		possibly_uncarried = true;
+        		keepLastAvgAccel=true;
+        		Log.i("STATUS", "1possibly uncarried  ");
+        		
+        	}else if(possibly_uncarried){
+        		Log.i("compare", "CompareX : "+(lastaverage[0]-4*ssd[0])+" <= "+ average[0] +" <= "+(lastaverage[0]+4*ssd[0]));
+        		Log.i("compare", "CompareY : "+(lastaverage[1]-4*ssd[0])+" <= "+ average[1] +" <= "+(lastaverage[1]+4*ssd[0]));
+        		Log.i("compare", "CompareZ : "+(lastaverage[2]-4*ssd[0])+" <= "+ average[2] +" <= "+(lastaverage[2]+4*ssd[0]));
+        		if(		(lastaverage[0]-4*ssd[0]<=average[0] &&lastaverage[0]+4*ssd[0]>=average[0]) &&
+        				(lastaverage[1]-4*ssd[0]<=average[1] &&lastaverage[1]+4*ssd[0]>=average[1]) &&
+        				(lastaverage[2]-4*ssd[0]<=average[2] &&lastaverage[2]+4*ssd[0]>=average[2])){
+        			uncarried=true;
+        			
+        		}else{
+        			keepLastAvgAccel=false;
+        			possibly_uncarried=false;
+      			}
+        		Log.i("STATUS", "2possibly uncarried  ");
+        	}else{
+        		possibly_uncarried = false;
+        		uncarried = false;
+        		keepLastAvgAccel = false;
+        	}
+        	
+//        	dbAdapter.open();
+//        	dbAdapter.insertTestAV(sd[0]+"",sd[1]+"",sd[2]+"",lastaverage[0]+"", lastaverage[1]+"", lastaverage[2]+"", average[0]+"", average[1]+"", average[2]+"");
+//        	dbAdapter.close();
         	Log.i("sd",sd[0]+" "+sd[1]+" "+sd[2]+" ");
         	Log.i("last",lastaverage[0]+" "+lastaverage[1]+" "+lastaverage[2]+" ");
         	Log.i("curr",average[0]+" "+average[1]+" "+average[2]+" ");
 //        	---------------------------------------------------------------------
         	//---------------------Classification for Uncarried-------------------------//
-		   if(next==2&&possibly_uncarried && step){
-			   Log.i("STATUS", "next1  "+next1);
-			   Log.i("STATUS", "next  "+next);
-			   next=1;
-			   next1=1;
+		   if(uncarried){
+			   uncarried=false;
+			   keepLastAvgAccel=true;
 			   classification="CLASSIFIED/UNCARRIED";
 		    }
 		 //---------------------Classification for the rest of activities by using Chris's-------------------------//
 		   else{
-			   Log.i("STATUS", "next1  "+next1);
-			   Log.i("STATUS", "next  "+next);
 			   if(ignore[0]!=1){
-				   if(next1!=1){
+				   if(!keepLastAvgAccel){
 					   lastaverage[0]=0;
 					   lastaverage[1]=0;
 					   lastaverage[2]=0;
-					   next=0;
 				   }
-				   classification = new Classifier(RecorderService.model.entrySet()).classify(calData, data,size);
-			       next1=0;
+				   classification = new Classifier(RecorderService.model.entrySet()).classify(data, size);
+				   keepLastAvgAccel=false;
 			   }
 			   else{
 				   classification="CLASSIFIED/WAITING";

@@ -25,12 +25,10 @@ public class Classification implements Parcelable {
     private final String classification;
     private final long start;
     private long end;
-    private static int service;
-	public Classification(final String classification, final long start,final int service) {
+	public Classification(final String classification, final long start) {
         this.classification = classification;
         this.start = start;
         this.end = start;
-        this.service=service;
     }
 
     public void updateEnd(final long end) {
@@ -62,9 +60,6 @@ public class Classification implements Parcelable {
         return start;
     }
 
-    public int isServiceStarted(){
-    	return service;
-    }
     @Override 
     public String toString() {
 //        final String duration;
@@ -120,7 +115,7 @@ public class Classification implements Parcelable {
              = new Parcelable.Creator<Classification>() {
 
         public Classification createFromParcel(Parcel arg0) {
-            final Classification res = new Classification(arg0.readString(), arg0.readLong(),arg0.readInt());
+            final Classification res = new Classification(arg0.readString(), arg0.readLong());
             res.updateEnd(arg0.readLong());
             return res;
         }

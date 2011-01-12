@@ -2,6 +2,7 @@
 
 package activity.classifier;
 
+import activity.classifier.common.service.RecorderService;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;

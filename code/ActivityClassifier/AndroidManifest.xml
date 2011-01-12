@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest package="activity.classifier" android:versionCode="1" android:versionName="1" xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:icon="@drawable/icon" android:debuggable="true" android:label="Activity Classifier2">
-         <activity android:screenOrientation="portrait" android:label="Activity Classifier2" android:name=".ActivityRecorderActivity">
+    <application android:icon="@drawable/icon" android:debuggable="true" android:label="Activity Classifier">
+         <activity android:screenOrientation="portrait" android:label="Activity Classifier" android:name=".common.activity.ActivityRecorderActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -14,16 +14,18 @@
 		         
 		     </intent-filter> 
 		 </receiver> 
-        <service android:label="Sensor Recorder Service" android:name=".RecorderService"/>
-        <service android:label="Activity Classification Service" android:name=".ClassifierService"/>
+        <service android:label="Sensor Recorder Service" android:name=".common.service.RecorderService"/>
+        <service android:label="Activity Classification Service" android:name=".common.service.ClassifierService"/>
     
 
 
-<activity android:label=".AccountActivity" android:name=".AccountActivity"></activity>
 
 
 
-<activity android:name=".ScreenSettingActivity" android:label="Screen Lock Setting"></activity>
+
+<activity android:label="Screen Lock Setting" android:name=".common.activity.ScreenSettingActivity"></activity>
+<service android:label="AccountService" android:name=".common.service.AccountService"></service>
+<service android:label="Phone Information Service" android:name=".common.service.PhoneInfoService"></service>
 </application>
 
 

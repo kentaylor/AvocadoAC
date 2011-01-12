@@ -24,8 +24,10 @@ public class CalcStatistics {
 	public CalcStatistics(float[] ArrayIn, int samples) {
 		//ArrayIn is a 3D array i.e. X,Y,Z  of a number of samples
 	//Summarise array passed in	
-		count = samples/3;
-		for(int i=0;i<samples;i=i+3){//step through array in groups of 3
+		count = samples;
+		
+		for(int i=0;i<samples*3;i=i+3){//step through array in groups of 3
+			
 			for(int j=0;j<3;j++){
 				float val = ArrayIn[(i + j)]; 
 				sum[j]+=val;
@@ -37,11 +39,10 @@ public class CalcStatistics {
 			}
 		}
 		for(int j=0;j<3;j++){
-			mean[j]= sum[j]/(samples/3);
+			mean[j]= sum[j]/(samples);
 			}
 		
 	}
-
 	public int getCount() {   
 	      // Return number of items in array as passed in.
 	   return count;

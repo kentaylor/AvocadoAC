@@ -46,40 +46,22 @@ public class Classifier {
         
     }
 
-    public String classify(final float[] calData, final float[] data, int size) {
-        final float oddTotal = data[8], evenTotal = data[5];
-        final float oddMin = data[6], oddMax = data[7];
-        final float evenMin = data[3], evenMax = data[4];
-        calc = new CalcStatistics(calData,size);
+    public String classify(final float[] data, int size) {
+        calc = new CalcStatistics(data,size);
         float[] max= new float[3];
         float[] min= new float[3];
         float[] mean= new float[3];
-        float[] sum= new float[3];
-        
-        Log.i("calData",calData.length+"");
         
         max = calc.getMax();
         min = calc.getMin();
         mean = calc.getMean();
-        sum = calc.getSum();
-//        final float[] points = {
-//                Math.abs(evenTotal / 128),
-//                Math.abs(oddTotal / 128),
-//                evenMax - evenMin,
-//                oddMax - oddMin
-//            };
+
         final float[] points = {
             Math.abs(mean[1]),
             Math.abs(mean[2]),
             max[1] - min[1],
             max[2] - min[2]
         };
-        Log.i("stat","evenMax: "+evenMax+" max[1]: "+max[1]);
-        Log.i("stat","evenMin: "+evenMin+" min[1]: "+min[1]);
-        Log.i("stat","oddMax: "+oddMax+" max[2]: "+max[2]);
-        Log.i("stat","oddMin: "+oddMin+" min[2]: "+min[2]);
-        Log.i("stat","absEven: "+(evenTotal/128)+" mean[1]: "+mean[1]);
-        Log.i("stat","absOdd: "+(oddTotal/128)+" mean[2]: "+mean[2]);
 
         float bestDistance = Float.MAX_VALUE;
         String bestActivity = "UNCLASSIFIED/UNKNOWN";
