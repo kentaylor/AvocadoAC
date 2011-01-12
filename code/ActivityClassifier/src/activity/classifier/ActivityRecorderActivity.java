@@ -59,7 +59,6 @@ public class ActivityRecorderActivity extends Activity {
     ProgressDialog dialog;
     boolean cData = false;
     final Handler handler = new Handler();
-    private DbAdapter dbAdapter;
     private static final int up_id = 1;
     private static final int sleep_id = 2;
     private static final int style_group = 1;
@@ -94,7 +93,6 @@ public class ActivityRecorderActivity extends Activity {
     //Function for Menu item listener
     @Override
     public boolean onOptionsItemSelected(MenuItem item){
-    	dbAdapter = new DbAdapter(this);
     	switch(item.getItemId()){
     	//If user click the "delete database"
     	case R.id.deletedata:
@@ -211,10 +209,7 @@ public class ActivityRecorderActivity extends Activity {
                     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); 
 
                     String startTime = dateFormat.format(date) ;
-                    dbAdapter.open();
-                    dbAdapter.insertActivity("END",startTime,   0,0);
-                    dbAdapter.close();
-
+                    activityQuery.insertActivities("END", startTime, 0);
                     FlurryAgent.onEvent("recording_stop");
 
                     stopService(new Intent(ActivityRecorderActivity.this,
@@ -222,7 +217,7 @@ public class ActivityRecorderActivity extends Activity {
                     unbindService(connection);
                     bindService(new Intent(ActivityRecorderActivity.this, RecorderService.class),
                             connection, BIND_AUTO_CREATE);
-
+ 
                 } 
                 else {
                 	cData=false;
@@ -245,23 +240,20 @@ public class ActivityRecorderActivity extends Activity {
     };
 
     private static boolean stop = false;
-    private static int start=1;
-    private static int setWL=1;
+    private int isServiceRunning=0;
+    private int isWakeLockSet=0;
     private PowerManager.WakeLock wl;
+    private OptionQueries optionQuery;
+    private ActivityQueries activityQuery;
     /** {@inheritDoc} */
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
-        dbAdapter = new DbAdapter(this);
-        dbAdapter.open();
-        Cursor result =    dbAdapter.fetchStart(1);
-        start = (int) Float.valueOf(result.getString(1).trim()).floatValue();;
-        result.close();
-        Cursor result6 =    dbAdapter.fetchStart(8);
-        setWL = (int) Float.valueOf(result6.getString(1).trim()).floatValue();;
-        result6.close();
-    	dbAdapter.close();
-    	if(setWL==1){
+        activityQuery = new ActivityQueries(this);
+        optionQuery = new OptionQueries(this);
+    	isServiceRunning = optionQuery.getServiceRunningState();
+    	isWakeLockSet = optionQuery.getWakeLockState();
+    	if(isWakeLockSet==0){
     		this.wakelock=false;
     	}else{
     		this.wakelock=true;
@@ -273,7 +265,7 @@ public class ActivityRecorderActivity extends Activity {
         ((Button) findViewById(R.id.togglebutton)).setOnClickListener(clickListener);
         ((ListView) findViewById(R.id.list)).setAdapter(
                 new ArrayAdapter<Classification>(this, R.layout.item));
-        if(start==0){
+        if(isServiceRunning==0){
         }else{
 			if(!stop){
 			FlurryAgent.onEvent("recording_start");
@@ -291,7 +283,7 @@ public class ActivityRecorderActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         stop=true;
-        start = 0;
+        isServiceRunning = 0;
         unbindService(connection);
 
     }

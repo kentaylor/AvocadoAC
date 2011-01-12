@@ -40,16 +40,14 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.database.Cursor;
 import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.util.Log;
+import android.widget.Toast;
 
 /**
  *
@@ -75,13 +73,17 @@ public class RecorderService extends Service {
 
     public String strStatus="";
     private String MODEL="";
-    protected AccountManager accountManager;
+    
     Sensor mSensor;
     private final Handler handler = new Handler();
-    private DbAdapter dbAdapter;
-
-    private static int service = 0;
-    private static int IM = 1;
+    
+    private String toastString;
+    private String AccountName;
+    private String ModelName;
+    private String IMEI;
+    private float[] ssd = new float[3];
+    private int service = 0;
+    private int isAccountSent = 0;
     private Timer timer;
     private SensorManager manager;
     private PowerManager.WakeLock wl;
@@ -89,7 +91,14 @@ public class RecorderService extends Service {
     private PowerManager.WakeLock wl3;
     private static float[] ignore={0};
     private float[] data = new float[384];
-
+    private UploadActivityHistory uploadActivityHistory;
+    
+    private OptionQueries optionQuery;
+    private ActivityQueries activityQuery;
+//    private boolean possibly_uncarried;
+//    private boolean keepLastAvgAccel;
+//    private float[] lastaverage = new float[3];
+    
     boolean running;
    
     public static Map<Float[], String> model;
@@ -132,9 +141,30 @@ public class RecorderService extends Service {
     	Log.i("setwake","ok");
     	if(this.wakelock!=wakelock){
 	    	this.wakelock=wakelock;
-	    	
-
     	}
+    }
+    
+//    public void setPossiblyUncarried(boolean possibly_uncarried){
+//    	this.possibly_uncarried = possibly_uncarried;
+//    }
+//    
+//    public void setLastAvgAccelToZero(boolean keepLastAvgAccel){
+//    	this.keepLastAvgAccel = keepLastAvgAccel;
+//    }
+//    
+//    public void setLastAvgAccel(float LastAvgAccelX, float LastAvgAccelY,
+//			float LastAvgAccelZ){
+//    	this.lastaverage[0] = LastAvgAccelX;
+//    	this.lastaverage[1] = LastAvgAccelY;
+//    	this.lastaverage[2] = LastAvgAccelZ;
+//    }
+    public void setAccountStateToastString(String toastString){
+    	this.toastString = toastString;
+    }
+    public void setPhoneInfo(String AccountName, String ModelName, String IMEI){
+    	this.AccountName = AccountName;
+    	this.ModelName = ModelName;
+    	this.IMEI = IMEI;
     }
     private final ActivityRecorderBinder.Stub binder = new ActivityRecorderBinder.Stub() {
 
@@ -151,33 +181,51 @@ public class RecorderService extends Service {
         public boolean isRunning() throws RemoteException {
             return running;
         }
+        
         public void SetWakeLock(boolean wakelock)throws RemoteException{
 			setWake(wakelock);
-        	
-        	
         }
-    };
-    private final Runnable updateRunnable = new Runnable() {
 
-        public void run() {
-            try {
-				updateButton();
-			} catch (ParseException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-            
-            handler.postDelayed(updateRunnable, 500);
-        }
+//		public void IsPossiblyUncarried(boolean possibly_uncarried)
+//				throws RemoteException {
+//			setPossiblyUncarried(possibly_uncarried);			
+//		}
+//
+//		public void SetLastAvgAccelToZero(boolean keepLastAvgAccel)
+//				throws RemoteException {
+//			setLastAvgAccelToZero(keepLastAvgAccel);	
+//		}
+//
+//		public void SetLastAvgAccel(float LastAvgAccelX, float LastAvgAccelY,
+//				float LastAvgAccelZ) throws RemoteException {
+//			setLastAvgAccel(LastAvgAccelX,LastAvgAccelY,LastAvgAccelZ);
+//			
+//		}
+
+		public void SetAccountStateToastString(String toastString)
+				throws RemoteException {
+			setAccountStateToastString(toastString);
+   	    	Toast.makeText(RecorderService.this, toastString, Toast.LENGTH_LONG).show();
+		}
+
+		public void SetPhoneInformation(String AccountName, String ModelName, String IMEI)
+				throws RemoteException {
+	        Log.i("PhoneInfo","0 "+AccountName);
+	    	Log.i("PhoneInfo","0 "+ModelName);
+	    	Log.i("PhoneInfo","0 "+IMEI);
+			setPhoneInfo(AccountName, ModelName, IMEI);	
+			registerAccount(isAccountSent,AccountName,ModelName,IMEI);
+			uploadActivityHistory.uploadDataToWeb(AccountName);
+		}
     };
 
     private final Runnable registerRunnable = new Runnable() {
 
         public void run() {
             //Log.i(getClass().getName(), "Registering");
-            sampler.start();
-            
-            handler.postDelayed(registerRunnable, 30000);
+        	sampler.start();
+
+       		handler.postDelayed(registerRunnable, 30000);
         }
 
     };
@@ -189,12 +237,24 @@ public class RecorderService extends Service {
             	ignore[0]++;
             }
             intent.putExtra("data", sampler.getData());
-            intent.putExtra("calData", sampler.getCalData());
             intent.putExtra("status", strStatus);
-            intent.putExtra("size", sampler.getCalSize());
+            intent.putExtra("size", sampler.getSize());
             intent.putExtra("ignore", ignore);
             intent.putExtra("wake", wakelock);
+            intent.putExtra("LastClassificationName", (!classifications.isEmpty() ? classifications.get(classifications.size() - 1).getNiceClassification() : null));
+//            intent.putExtra("possibly_uncarried", possibly_uncarried);
+//            intent.putExtra("keepLastAvgAccel", keepLastAvgAccel);
+//            intent.putExtra("lastaverage", lastaverage);
+//            Log.i("ExtraInRecorderService","possibly_uncarried: "+possibly_uncarried+"");
+//            Log.i("ExtraInRecorderService","keepLastAvgAccel  : "+keepLastAvgAccel+"");
+//            Log.i("ExtraInRecorderService",lastaverage[0]+" "+lastaverage[1]+" "+lastaverage[2]+" ");
             startService(intent);
+        	try {
+				updateButton();
+			} catch (ParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
         }
 
     };
@@ -240,11 +300,6 @@ public class RecorderService extends Service {
         return binder;
     }
 
-    public String getModel() {
-        return android.os.Build.MODEL;
-
-    }
-	
     @Override
     public void onStart(final Intent intent, final int startId) {
         super.onStart(intent, startId);
@@ -260,103 +315,49 @@ public class RecorderService extends Service {
                 new IntentFilter(Intent.ACTION_SCREEN_OFF));
         this.registerReceiver(this.myScreenReceiver,
                 new IntentFilter(Intent.ACTION_SCREEN_ON));
-        dbAdapter = new DbAdapter(this);
-        dbAdapter.open();
-        dbAdapter.updateStart(1, 0+"");
-        Cursor result5 =    dbAdapter.fetchStart(7);
-        IM = (int) Float.valueOf(result5.getString(1).trim()).floatValue();;
-        result5.close();
-        dbAdapter.close();
-        
+        Log.i("PhoneInfo","1 "+AccountName);
+    	Log.i("PhoneInfo","1 "+ModelName);
+    	Log.i("PhoneInfo","1 "+IMEI);
+        getPhoneInfo();
+        Log.i("PhoneInfo","2 "+AccountName);
+    	Log.i("PhoneInfo","2 "+ModelName);
+    	Log.i("PhoneInfo","2 "+IMEI);
+        uploadActivityHistory = new UploadActivityHistory(this);
+        activityQuery = new ActivityQueries(this);
+        optionQuery = new OptionQueries(this);
+        optionQuery.setServiceRunningState("1");
+        isAccountSent = optionQuery.getAccountState();
+
         reader = new AccelReaderFactory().getReader(this);
         sampler = new Sampler(handler, reader, analyseRunnable);
         
-        timer = new Timer("Data logger");
-        MODEL=getModel();
-        accountManager = AccountManager.get(getApplicationContext());
-        Account[] accounts = accountManager.getAccountsByType("com.google");
-        final String account = (accounts.length!=0 ? accounts[0].name : "No account");
-        		
-        timer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-            	
-        		HttpClient client = new DefaultHttpClient();
-        	    final HttpPost post = new HttpPost("http://testingjungoo.appspot.com/activity");
-        	    final File file = getFileStreamPath("activityrecords.db");
-        	    final FileEntity entity = new FileEntity(file, "text/plain");
-        	      
-        	    ArrayList<String> activity = new ArrayList<String>();
-        	    ArrayList<String> date = new ArrayList<String>();
-        	    ArrayList<Integer> id = new ArrayList<Integer>();
-        	    //open database and check the un-posted data and send that data 
-        	    dbAdapter.open();
-        	    Cursor result =    dbAdapter.fetchActivityCheck1(0);
-        	      
-        	    for(result.moveToFirst(); result.moveToNext(); result.isAfterLast()) {
-        	    	id.add(Integer.parseInt(result.getString(0)));
-        	    	activity.add(result.getString(1));
-        	    	date.add(result.getString(2));
-        	    	  
-        	    	Log.i("acti",result.getString(1)+"");
-            	    Log.i("date",result.getString(2)+"");
-        	    }
-        	    Log.i("spe",activity.size()+"");
-        	    result.close();
-        	    dbAdapter.close();
-
-        	    if(activity.size()!=0){
-        	    	String message = "";
-        		    Log.i("size?",activity.size()+"");
-        		    for(int i = 0 ; i<activity.size();i++){
-        		     
-        		    	if(i==activity.size()){
-        		    		message +=  activity.get(i)+"&&"+date.get(i);
-        		    	}else{
-        		    		message +=  activity.get(i)+"&&"+date.get(i)+"##";
-        		    	}
-        		    }
-        		    String[] chunk = message.split("##");
-        		    Log.i("s",chunk.length+"");
-        		    for(int i=0;i<chunk.length;i++){
-        		    	Log.i("Series",chunk[i]);
-        		    }
-        		    try {
-        		    	DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        		    	Date systemdate = Calendar.getInstance().getTime();
-        		    	String reportDate = df.format(systemdate);
-        		    	post.setHeader("sysdate",reportDate);
-        		    	post.setHeader("size",activity.size()+"");
-        	  	        post.setHeader("message", message);
-        	  	        post.setHeader("UID", account);
-        	  	        post.setEntity(entity);
-        	   	    	
-        	  	        int code = new DefaultHttpClient().execute(post).getStatusLine().getStatusCode();
-        		        Log.i("m",message);
-        		        
-        		        dbAdapter.open();
-        		        for(int i=0;i<id.size();i++){
-        		        	dbAdapter.updateActivity(id.get(i), activity.get(i), date.get(i), 1,1);
-	            		}
-	            		dbAdapter.close();
-   		            } catch (IOException ex) {
-   		            	Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
-        		        dbAdapter.open();
-        		        for(int i=0;i<id.size();i++){
-        		        	dbAdapter.updateActivity(id.get(i), activity.get(i), date.get(i), 0,0);
-        		        }
-        		        dbAdapter.close();
-        		    }
-        	    }
-            }
-        }, 300000, 300000);
-        if(IM==1){
-        	startActivity(new Intent(this, AccountActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        }
+//        for(int i = 0; i < 3; i++){
+//        	lastaverage[i]=0;
+//        }
+//        possibly_uncarried = false;
+//        keepLastAvgAccel = false;
+        
+        
+        
+        
+        Log.i("Account",isAccountSent+"");
         init();
         
     }
-	
+    private void getPhoneInfo(){
+    	Intent intent = new Intent(RecorderService.this, PhoneInfoService.class);
+    	Log.i("PhoneInfo","Accessed");
+    	startService(intent);
+    }
+	private void registerAccount(int isAccountSent, String AccountName, String ModelName, String IMEI){
+        if(isAccountSent==0){
+        	Intent intent = new Intent(RecorderService.this, AccountService.class);
+        	intent.putExtra("AccountName", AccountName);
+        	intent.putExtra("ModelName", ModelName);
+        	intent.putExtra("IMEI", IMEI);
+        	startService(intent);
+        }
+	}
     
     public static void copy( String targetFile, String copyFile ){
     	try {
@@ -382,11 +383,12 @@ public class RecorderService extends Service {
     	String dbfile ="data/data/activity.classifier/files/activityrecords.db";
     	copy("data/data/activity.classifier/databases/activityrecords.db",dbfile);
     	
+        
     	model = ModelReader.getModel(this, R.raw.basic_model);
 
         manager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         handler.postDelayed(registerRunnable, 1000);
-        handler.postDelayed(updateRunnable, 500);
+//        handler.postDelayed(updateRunnable, 500);
 
         handler.postDelayed(screenRunnable, 1000);
 //        classifications.add(new Classification("CLASSIFIED/WAITING", System.currentTimeMillis(),service));
@@ -422,13 +424,9 @@ public class RecorderService extends Service {
 		            if(!lastAc.equals(newAc)){
 		            	Log.i("lastAc",lastAc);
 			            Log.i("newAc",newAc);
-			            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");  
 			                
 			            String date = adapter.get(adapter.size()-1).getStartTime();
-			            Date date1 = dateFormat.parse(date); 
-			            dbAdapter.open();
-			            dbAdapter.insertActivity(activity,date,   0,0);
-			            dbAdapter.close();
+			            activityQuery.insertActivities(activity, date, 0);
 		            }
 		            lastAc = newAc;
 	        }	           
@@ -439,9 +437,6 @@ public class RecorderService extends Service {
 	        
 	}
 
-    ArrayList<String> activity = new ArrayList<String>();
-    ArrayList<String> date = new ArrayList<String>();
-    //post call itself every 5min,
 
     
     //this is for Chris's classification ()
@@ -476,14 +471,16 @@ public class RecorderService extends Service {
             }
             ignore[0] = 0;
             service = 0;
-            dbAdapter.open();
-            dbAdapter.updateStart(1, 1+"");
-            dbAdapter.close();
+//            dbAdapter.open();
+//            dbAdapter.updateToSelectedStartTable("isServiceRunning", 0+"");
+//            dbAdapter.close();
+            optionQuery.setServiceRunningState("0");
             handler.removeCallbacks(registerRunnable);
-            handler.removeCallbacks(updateRunnable);
+//            handler.removeCallbacks(updateRunnable);
             handler.removeCallbacks(screenRunnable);
             this.unregisterReceiver(myBatteryReceiver);
-            timer.cancel();
+            this.unregisterReceiver(myScreenReceiver);
+            uploadActivityHistory.CancelTimer();
            
 //            dbAdapter.close();
             if(wl!=null){
