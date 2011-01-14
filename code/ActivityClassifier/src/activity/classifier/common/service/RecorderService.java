@@ -56,10 +56,6 @@ import android.util.Log;
 import android.widget.Toast;
 
 /**
- *
- * @author chris
- * modified by Justin
- * 
  * RecorderService is main background service.
  * This service uses broadcast to get the information of charging status and screen status.
  * The battery status is sent to ClassifierService to determine Charging state.
@@ -69,29 +65,29 @@ import android.widget.Toast;
  * 
  * Update activity history to web server every 5 min.
  * If there is bad internet connection, then it does not send them and waits for next time.
+ *
+ * @author chris, modified by Justin
  * 
  *
  */
 public class RecorderService extends Service {
-    AccelReader reader;
+
+	AccelReader reader;
     Sampler sampler;
 	final Aggregator aggregator = new Aggregator();
 
-    public String strStatus="";
+
+    private String chargingState="";
     
     private final Handler handler = new Handler();
     
-    private String AccountName;
-    private String ModelName;
-    private String IMEI;
-
     private int isAccountSent;
     private int isWakeLockSet;
     
     private PowerManager.WakeLock PARTIAL_WAKE_LOCK_MANAGER;
     private PowerManager.WakeLock SCREEN_DIM_WAKE_LOCK_MANAGER;
     
-    private static float[] ignore={0};
+    private float[] ignore={0};
     
     private UploadActivityHistory uploadActivityHistory;
     
@@ -101,16 +97,20 @@ public class RecorderService extends Service {
     boolean running;
    
     public static Map<Float[], String> model;
+    
     private final List<Classification> classifications = new ArrayList<Classification>();
 
     private Boolean SCREEN_DIM_WAKE_LOCK_MANAGER_IsAcquired=false;
     private Boolean PARTIAL_WAKE_LOCK_MANAGER_IsAcquired=false;
+    
     PowerManager pm;
 
-    
     final List<Classification> adapter = new ArrayList<Classification>();
     String lastAc = "NONE";
     
+    /**
+     * broadcastReceiver that receive phone's screen state
+     */
     private BroadcastReceiver myScreenReceiver = new BroadcastReceiver(){
     	
     	public void onReceive(Context arg0, Intent arg1) {
@@ -127,23 +127,34 @@ public class RecorderService extends Service {
     	}
     };
     
-  //Broadcast receiver for battery manager
+
+    /**
+     *  Broadcast receiver for battery manager
+     */
     private BroadcastReceiver myBatteryReceiver = new BroadcastReceiver(){
 
 		  @Override
 		  public void onReceive(Context arg0, Intent arg1) {
 			  int status = arg1.getIntExtra("plugged", -1);
 		      if (status != 0  ){
-		    	  strStatus = "Charging";
+		    	  chargingState = "Charging";
 		    	  Log.i("charging","charging");
 		      }else{
-		    	  strStatus = "NotCharging";
+		    	  chargingState = "NotCharging";
 		    	  Log.i("charging","notcharging");
 		      }
 		  }
     };
 
+    /**
+     * Performs screen wake lock depends on the screen on/off  
+     * @param wakelock
+     */
     private void applyWakeLock(boolean wakelock){
+    	/*
+    	 * if wake lock is set, PARTIAL_WAKE_LOCK is released,
+    	 * then use SCREEN_DIM_WAKE_LOCK to turn the screen on.
+    	 */
     	if(wakelock){
     		if(PARTIAL_WAKE_LOCK_MANAGER!=null){
     			PARTIAL_WAKE_LOCK_MANAGER.release();
@@ -173,16 +184,11 @@ public class RecorderService extends Service {
     	}
     }
     
-    public void getAccountStateToastString(String toastString){
-    	Toast.makeText(RecorderService.this, toastString, Toast.LENGTH_LONG).show();
-    }
     
-    public void setPhoneInfo(String AccountName, String ModelName, String IMEI){
-    	this.AccountName = AccountName;
-    	this.ModelName = ModelName;
-    	this.IMEI = IMEI;
-    }
-    
+    /**
+     * when the connection is established, some information such as classification name, service running state,
+     * wake lock state, phone information are passed in this RecorderService.
+     */
     private final ActivityRecorderBinder.Stub binder = new ActivityRecorderBinder.Stub() {
 
         public void submitClassification(String classification) throws RemoteException {
@@ -199,22 +205,17 @@ public class RecorderService extends Service {
         }
         
         public void SetWakeLock(boolean wakelock)throws RemoteException{
-        	Log.i("TESTTESTTEST",wakelock+"3");
         	applyWakeLock(wakelock);
         }
-
-		public void SetAccountStateToastString(String toastString)
-				throws RemoteException {
-			getAccountStateToastString(toastString);
-		}
 
 		public void SetPhoneInformation(String AccountName, String ModelName, String IMEI)
 				throws RemoteException {
 	        Log.i("PhoneInfo",AccountName);
 	    	Log.i("PhoneInfo",ModelName);
 	    	Log.i("PhoneInfo",IMEI);
-			setPhoneInfo(AccountName, ModelName, IMEI);	
+	    	//call AccountService to register user and phone information in online database
 			registerAccount(isAccountSent,AccountName,ModelName,IMEI);
+			//start to upload un-posted activities to Web server
 			uploadActivityHistory.uploadDataToWeb(AccountName);
 		}
     };
@@ -238,15 +239,16 @@ public class RecorderService extends Service {
             	ignore[0]++;
             }
             intent.putExtra("data", sampler.getData());
-            intent.putExtra("status", strStatus);
+            intent.putExtra("status", chargingState);
             intent.putExtra("size", sampler.getSize());
             intent.putExtra("ignore", ignore);
             intent.putExtra("LastClassificationName", (!classifications.isEmpty() ? classifications.get(classifications.size() - 1).getNiceClassification() : null));
             
             startService(intent);
         	
+            //every time the analyseRunnable runs, it calls InsertNewActivity() to store new data.
             try {
-				updateButton();
+				InsertNewActivity();
 			} catch (ParseException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -255,11 +257,17 @@ public class RecorderService extends Service {
 
     };
 
+    /**
+     * 
+     */
     @Override
     public IBinder onBind(Intent arg0) {
         return binder;
     }
 
+    /**
+     * 
+     */
     @Override
     public void onStart(final Intent intent, final int startId) {
         super.onStart(intent, startId);
@@ -277,7 +285,7 @@ public class RecorderService extends Service {
         this.registerReceiver(this.myScreenReceiver,
                 new IntentFilter(Intent.ACTION_SCREEN_ON));
 
-        getPhoneInfo();
+        fetchtPhoneInfo();
         
         uploadActivityHistory = new UploadActivityHistory(this);
         
@@ -287,7 +295,9 @@ public class RecorderService extends Service {
         optionQuery.setServiceRunningState("1");
         
         isAccountSent = optionQuery.getAccountState();
-    	isWakeLockSet = optionQuery.getWakeLockState();
+    	
+        
+        isWakeLockSet = optionQuery.getWakeLockState();
     	
     	if(isWakeLockSet==0){
     		applyWakeLock(false);
@@ -299,16 +309,23 @@ public class RecorderService extends Service {
         reader = new AccelReaderFactory().getReader(this);
         sampler = new Sampler(handler, reader, analyseRunnable);
 
+        
         init();
         
     }
     
-    private void getPhoneInfo(){
+    /**
+     * start the {@link PhoneInfoService} to be binded user and phone information.
+     */
+    private void fetchtPhoneInfo(){
     	Intent intent = new Intent(RecorderService.this, PhoneInfoService.class);
     	Log.i("PhoneInfo","Accessed");
     	startService(intent);
     }
     
+    /**
+     * start the {@link AccountService} to register the user and phone information in online database.
+     */
 	private void registerAccount(int isAccountSent, String AccountName, String ModelName, String IMEI){
         if(isAccountSent==0){
         	Intent intent = new Intent(RecorderService.this, AccountService.class);
@@ -319,29 +336,8 @@ public class RecorderService extends Service {
         }
 	}
     
-    public static void copy( String targetFile, String copyFile ){
-    	try {
-    		InputStream lm_oInput = new FileInputStream(new File(targetFile));
-    		byte[] buff = new byte[ 128 ];
-    		FileOutputStream lm_oOutPut = new FileOutputStream( copyFile );
-    		while(true){
-    			int bytesRead = lm_oInput.read( buff );
-    			if( bytesRead == -1 ) break;
-    			lm_oOutPut.write( buff, 0, bytesRead );
-    		}
-
-    		lm_oInput.close();
-    		lm_oOutPut.close();
-    		lm_oOutPut.flush();
-    		lm_oOutPut.close();
-    	}catch( Exception e ){
-    	}
-    }
-
     @SuppressWarnings("unchecked")
     public void init() {
-    	String dbfile ="data/data/activity.classifier/files/activityrecords.db";
-    	copy("data/data/activity.classifier/databases/activityrecords.db",dbfile);
         
     	model = ModelReader.getModel(this, R.raw.basic_model);
 
@@ -352,9 +348,11 @@ public class RecorderService extends Service {
         
     }
 
-
-	
-    void updateButton() throws ParseException {
+    /**
+     * 
+     * @throws ParseException
+     */
+    void InsertNewActivity() throws ParseException {
     	try {
     		if (classifications.isEmpty()) {
     			adapter.clear();
@@ -389,10 +387,7 @@ public class RecorderService extends Service {
 	    } 
 	        
 	}
-
-
     
-    //this is for Chris's classification ()
     void updateScores(final String classification) {
     	aggregator.addClassification(classification);
         if(!aggregator.getClassification().equals("CLASSIFIED/WAITING")){
@@ -413,7 +408,12 @@ public class RecorderService extends Service {
     public void onDestroy() {
         super.onDestroy();
 
-//        classifications.add(new Classification("CLASSIFIED/END", System.currentTimeMillis(),service));
+		Date date = new Date(System.currentTimeMillis());
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		String startTime = dateFormat.format(date);
+		// save message "END" to recognise when the background service is finished.
+		activityQuery.insertActivities("END", startTime, 0);
+		
         if (running) {
         	Log.i("Ondestroy","HERE");
         	ActivityRecorderActivity.serviceIsRunning=false;

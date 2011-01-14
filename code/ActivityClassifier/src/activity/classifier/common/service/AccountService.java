@@ -46,7 +46,8 @@ import com.flurry.android.FlurryAgent;
 
 
 /**
- * AccountActivity class is used for sending user's google account nick-name in order to match the user's activity history
+ * 
+ * AccountService class is used for sending user's google account nick-name in order to match the user's activity history
  * in web server.
  * It happens when the application runs at the very first time or next time if there is no account synced with the phone.
  * AccountManager is an API to get a user's current account name.
@@ -55,11 +56,13 @@ import com.flurry.android.FlurryAgent;
  * The number of google accounts would also be more than one but only single account is sent to the website for now.
  * 
  * Sending components : User account name, IMEI number, device model name
+ * 
+ * 
+ * @author Justin Lee
+ *
  */
-/** {@inheritDoc} */
 public class AccountService extends Service implements Runnable {
 	
-	ActivityRecorderBinder service = null;
     
 	private String toastString;
     private String AccountName;
@@ -68,81 +71,90 @@ public class AccountService extends Service implements Runnable {
 	
     private OptionQueries optionQuery;
 	
-	private ServiceConnection connection = new ServiceConnection() {
-
-        public void onServiceConnected(ComponentName arg0, IBinder arg1) {
-            service = ActivityRecorderBinder.Stub.asInterface(arg1);
-
-            try {
-            	service.SetAccountStateToastString(toastString);
-            } catch (RemoteException ex) {
-            	Log.e("connection", "Exception error occured in connection in AccountService class");
-            }
-            
-            stopSelf();
-        }
-
-        public void onServiceDisconnected(ComponentName arg0) {
-            Toast.makeText(AccountService.this, R.string.error_disconnected, Toast.LENGTH_LONG);
-        }
-    };
 
 
-    public void sendpost(String AccountName, String ModelName, String IMEI){
+    /**
+     * A method to post user's Google account, device model name, and IMEI to Web server
+     * @param AccountName user's Google account
+     * @param ModelName device model name
+     * @param IMEI IMEI number
+     */
+    private void postUserDetail(String AccountName, String ModelName, String IMEI){
     	
     	if (AccountName!=null){
 			HttpClient client = new DefaultHttpClient();
 			final HttpPost post = new HttpPost("http://testingjungoo.appspot.com/accountservlet");
 			final File file = getFileStreamPath("activityrecords.db");
 			final FileEntity entity = new FileEntity(file, "text/plain");
+			
+			//post user's information
 			try {
 				post.setHeader("UID",AccountName);
 		    	post.setHeader("IMEI",IMEI);
 		    	post.setHeader("Model",ModelName);
 	  	        post.setEntity(entity);
+	  	        
+	  	        /*
+	  	         *  integer data type variable, code, store a state value of the Internet response.
+	  	         *  For now, an error occurs when there is just no Internet connection, 
+	  	         *  but will use this variable to filter among the various of the Internet response states.
+	  	         */
 	   	    	int code = new DefaultHttpClient().execute(post).getStatusLine().getStatusCode();
+	   	    	
+	   	    	//set the pop-up message
 	   	    	setToastString("User Information submission completed.\n" +
 	   	    			"   phone model  : "+ModelName+"\n" +
 	   	    			"   account name : "+AccountName+"\n"+
 	   	    			"   IMEI number  : "+IMEI);
 	   	    	
+	   	    	//set the account state to 1 (true)
 	   	    	optionQuery.setAccountState("1");
-	   	    	Log.i("sendpost","Sented!!");
-	            } catch (IOException ex) {
+	   	    	Log.i("postUserDetail","posted");
+            
+			} catch (IOException ex) {
 	                Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
-	                setToastString("Submission failed, check phone's Internet connectivity and try again.");
+	                //set the pop-up message
+	                setToastString("Submission failed,\n check phone's Internet connectivity and try again.");
+	                
+	                //set the account state to 0 (false)
 	                optionQuery.setAccountState("0");
-		   	    	Log.i("sendpost","NotSented!!");
-	            } finally{
-	            	Log.i("sendpost","getModel() "+ModelName);
-	            	Log.i("sendpost","getIMEI() "+IMEI);
-	            	Log.i("sendpost","account "+AccountName);
-	            	 bindService(new Intent(this, RecorderService.class), connection, BIND_AUTO_CREATE);
-	            }
+		   	    	Log.i("postUserDetail","Not posted");
+            } 
     	}
-	     
-
     }
-    
+
+    /**
+     * set the toast message to feedback to the user
+     * @param toastString feedback message based on the account states
+     */
     private void setToastString(String toastString){
     	this.toastString = toastString;
     }
 
-    /** {@inheritDoc} */
+
+    /**
+     * Initialise variables (AccountName, ModelName, IMEI)
+     */
     public void onStart(Intent intent, int startId) {
         super.onStart(intent, startId);
         optionQuery = new OptionQueries(this);
+        
+        //get these values from RecorderService.java 
         AccountName = intent.getStringExtra("AccountName");
         ModelName = intent.getStringExtra("ModelName");
         IMEI = intent.getStringExtra("IMEI");
+        
         new Thread(this).start();
     
     }
 
+    /**
+     * when posting is finished, toast a feedback message
+     */
     @Override
     public void onDestroy() {
         super.onDestroy();
-        unbindService(connection);
+        Toast.makeText(AccountService.this, toastString, Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -150,8 +162,11 @@ public class AccountService extends Service implements Runnable {
         return null;
     }
     
+    /**
+     * run once, then stop
+     */
 	public void run() {
-    	sendpost(AccountName,ModelName,IMEI);
+		postUserDetail(AccountName,ModelName,IMEI);
     	stopSelf();
 	}
 

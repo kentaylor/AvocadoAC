@@ -15,12 +15,21 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.widget.Toast;
 
+/**
+ * a utility class which read user and device information and pass them to other classes to use.
+ * 
+ * @author Justin Lee
+ *
+ */
 public class PhoneInfoService extends Service {
 	
 	protected AccountManager accountManager;
 	
 	ActivityRecorderBinder service = null;
 	
+	/**
+	 * whe the connection is established, submit the user and device information 
+	 */
 	private ServiceConnection connection = new ServiceConnection() {
 
         public void onServiceConnected(ComponentName arg0, IBinder arg1) {
@@ -40,14 +49,26 @@ public class PhoneInfoService extends Service {
         }
     };
     
+    /**
+     * Get the device model name
+     * @return device model name
+     */
     public String getModel() {
         return android.os.Build.MODEL;
     }
     
+    /**
+     * Get the device IMEI number
+     * @return device IMEI number
+     */
     public String getIMEI() {
         return ((TelephonyManager) getSystemService(TELEPHONY_SERVICE)).getDeviceId();
     }
     
+    /**
+     * Get the user's Google account name
+     * @return user's Google account name
+     */
     public String getAccountName() {
     	accountManager = AccountManager.get(getApplicationContext());
         Account[] accounts = accountManager.getAccountsByType("com.google");
@@ -55,7 +76,6 @@ public class PhoneInfoService extends Service {
         return account;
     }
     
-    /** {@inheritDoc} */
     public void onStart(Intent intent, int startId) {
         super.onStart(intent, startId);
         bindService(new Intent(this, RecorderService.class), connection, BIND_AUTO_CREATE);

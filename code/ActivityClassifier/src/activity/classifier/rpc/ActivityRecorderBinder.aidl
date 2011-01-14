@@ -21,9 +21,6 @@ interface ActivityRecorderBinder {
     
     void SetWakeLock(boolean wakelock);
     
-    
-    void SetAccountStateToastString(String toastString);
-    
     void SetPhoneInformation(String AccountName, String ModelName, String IMEI);
     
     

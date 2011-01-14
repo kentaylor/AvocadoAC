@@ -40,22 +40,39 @@ import android.util.Log;
 public class Classifier {
 
     private final Set<Map.Entry<Float[], String>> model;
-    CalcStatistics calc;
+    
+    /**
+     * {@link CalcStatistics} instance to get maximum, minimum, and mean acceleration values.
+     */
+    public CalcStatistics calc;
+    
+    /**
+     * Set the clustered data set for classification.
+     * @param model clustered data set
+     */
     public Classifier(final Set<Entry<Float[], String>> model) {
         this.model = model;
-        
     }
 
+    /**
+     * Extracts basic features and applies a K-Nearest Network algorithm (K=1).
+     * @param data sampled data array
+     * @param size sampled data size 
+     * @return best classification name
+     */
     public String classify(final float[] data, int size) {
+    	//new CalcStatistics instance
         calc = new CalcStatistics(data,size);
         float[] max= new float[3];
         float[] min= new float[3];
         float[] mean= new float[3];
         
+        //get maximum, minimum, and mean acceleration values.
         max = calc.getMax();
         min = calc.getMin();
         mean = calc.getMean();
 
+        //set the points to compare to the clustered data set.
         final float[] points = {
             Math.abs(mean[1]),
             Math.abs(mean[2]),
@@ -66,6 +83,11 @@ public class Classifier {
         float bestDistance = Float.MAX_VALUE;
         String bestActivity = "UNCLASSIFIED/UNKNOWN";
 
+        /*
+         *  Compare between the points from the sample data and the points from the clustered data set.
+         *  Get the closest points in the clustered data set, and classify the activity.
+         */
+        
         for (Map.Entry<Float[], String> entry : model) {
             float distance = 0;
 

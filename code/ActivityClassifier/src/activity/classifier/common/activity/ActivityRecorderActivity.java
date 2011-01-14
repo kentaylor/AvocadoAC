@@ -10,9 +10,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -21,27 +19,22 @@ import activity.classifier.R.id;
 import activity.classifier.R.layout;
 import activity.classifier.R.string;
 import activity.classifier.common.CommonDef;
-import activity.classifier.common.repository.ActivityQueries;
 import activity.classifier.common.repository.OptionQueries;
 import activity.classifier.common.service.RecorderService;
 import activity.classifier.rpc.ActivityRecorderBinder;
 import activity.classifier.rpc.Classification;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.NotificationManager;
 import android.app.ProgressDialog;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -57,18 +50,17 @@ import com.flurry.android.FlurryAgent;
 
 /**
  * 
- * @author chris, modified Justin
+ * @author chris, modified Justin Lee
  * 
  */
 public class ActivityRecorderActivity extends Activity {
 
-	
 	private static final String PATH_ACTIVITY_RECORDS_DB = "data/data/activity.classifier/databases/activityrecords.db";
 	private static final String URL_ACTIVITY_HISTORY = "http://testingjungoo.appspot.com/actihistory.jsp";
-	
+
 	private static final int DELAY_UI_UPDATE = 500;
 	private static final int DELAY_SERVICE_START = 500;
-	
+
 	public static boolean serviceIsRunning = false;
 	
 	private final Handler handler = new Handler();
@@ -77,23 +69,25 @@ public class ActivityRecorderActivity extends Activity {
 	
 	private ProgressDialog dialog;
 	
+	/**
+	 * enable to delete database in the device repository.
+	 */
 	private boolean EnableDeletion;
 	
 	private OptionQueries optionQuery;
-	private ActivityQueries activityQuery;
 	
-	/*
+	/**
 	 * Updates the user interface.
 	 */
 	private final UpdateInterfaceRunnable updateInterfaceRunnable = new UpdateInterfaceRunnable();
 	
-	/*
+	/**
 	 * Displays the progress dialog, waits some time, starts the service, waits some more,
 	 * 	then hides the dialog.
 	 */
 	private final StartServiceRunnable startServiceRunnable = new StartServiceRunnable();
 	
-	/*
+	/**
 	 *	Performs necessary tasks when the connection to the service
 	 *	is established, and after it is disconnected.
 	 */
@@ -118,18 +112,16 @@ public class ActivityRecorderActivity extends Activity {
 		
 	};
 	
-	// Function for Start/Stop button listener
+	/**
+	 * Click Listener for start/stop button on the main UI.
+	 */
 	private OnClickListener clickListener = new OnClickListener() {
 		
 		public void onClick(View clickedView) {
 			try {
 				if (service.isRunning()) {
 					EnableDeletion = true;
-					Date date = new Date(System.currentTimeMillis());
-					SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-					
-					String startTime = dateFormat.format(date);
-					activityQuery.insertActivities("END", startTime, 0);
+
 					
 					FlurryAgent.onEvent("recording_stop");
 					
@@ -151,12 +143,20 @@ public class ActivityRecorderActivity extends Activity {
 
 		}
 	};
-	
+
+	/**
+	 * 
+	 * @param intent
+	 * @return null
+	 */
 	public IBinder onBind(Intent intent) {
 		return null;
 	}
 	
-	// Function for creating Menu
+
+	/**
+	 * Enable to use menu button to make option menus.
+	 */
 	public boolean onCreateOptionsMenu(Menu menu) {
 		
 		super.onCreateOptionsMenu(menu);
@@ -166,7 +166,9 @@ public class ActivityRecorderActivity extends Activity {
 		return true;
 	}
 	
-	// Function for being disable menu items when app is running
+	/**
+	 * Set the number of option menus on this Activity.
+	 */
 	@Override
 	public boolean onPrepareOptionsMenu(Menu menu) {
 		super.onPrepareOptionsMenu(menu);
@@ -181,11 +183,14 @@ public class ActivityRecorderActivity extends Activity {
 		return true;
 	}
 	
-	// Function for Menu item listener
+	/**
+	 * Performs the option menu with an appropriate option clicked.   
+	 */
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
 			
+		//Performs Wake Lock menu.
 			case R.id.wake:
 				try {
 					if (service.isRunning()) {
@@ -199,7 +204,8 @@ public class ActivityRecorderActivity extends Activity {
 					Log.e(CommonDef.DEBUG_TAG, "Unable to get service state", ex);
 				}
 				break;
-				// if user click the "copy database to SDcard"
+
+			//Performs copying database file to SDcard.	
 			case R.id.copydata:
 				try {
 					File sdcard = Environment.getExternalStorageDirectory();
@@ -220,6 +226,8 @@ public class ActivityRecorderActivity extends Activity {
 					Log.e(CommonDef.DEBUG_TAG, "Unable to get service state", ex);
 				}
 				break;
+			
+			//Performs to show the Web site so that an user can see the history of activities.
 			case R.id.link:
 				try {
 					String url = URL_ACTIVITY_HISTORY;
@@ -231,6 +239,7 @@ public class ActivityRecorderActivity extends Activity {
 				}
 				break;
 
+			//Performs to show the current calibration Standard Deviation values.
 			case R.id.showCalibration:
 				try{
         			Toast.makeText(ActivityRecorderActivity.this, "Calibration values : \n" +
@@ -242,6 +251,8 @@ public class ActivityRecorderActivity extends Activity {
 					Log.e(CommonDef.DEBUG_TAG, "Unable to get service state", ex);
 				}
 				break;
+				
+			//Performs to reset the current calibration Standard Deviation values to default value(0.1).
 			case R.id.resetCalibration:
 				try{
 					
@@ -258,7 +269,8 @@ public class ActivityRecorderActivity extends Activity {
 					Log.e(CommonDef.DEBUG_TAG, "Unable to get service state", ex);
 				}
 				break;
-				// If user click the "delete database"
+
+			//Performs to delete the database in the device repository.
 			case R.id.deletedata:
 				try {
 					if (service.isRunning()) {
@@ -278,12 +290,13 @@ public class ActivityRecorderActivity extends Activity {
 	}
 	
     
-	/** {@inheritDoc} */
+	/**
+	 * 
+	 */
 	@Override
 	public void onCreate(Bundle icicle) {
 		super.onCreate(icicle);
 		EnableDeletion = false;
-		activityQuery = new ActivityQueries(this);
 		optionQuery = new OptionQueries(this);
 		setContentView(R.layout.main);
 		((Button) findViewById(R.id.togglebutton)).setEnabled(false);
@@ -294,39 +307,35 @@ public class ActivityRecorderActivity extends Activity {
 		bindService(new Intent(this, RecorderService.class), connection, BIND_AUTO_CREATE);
 		
 	}
-	
-	/** {@inheritDoc} */
+
+	/**
+	 * 
+	 */
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
 		unbindService(connection);
 	}
 	
+	/**
+	 * 
+	 */
 	protected void onResume() {
 		super.onResume();
 		updateInterfaceRunnable.start();
 	}
 	
+	/**
+	 * 
+	 */
 	protected void onPause() {
 		super.onPause();
 		updateInterfaceRunnable.stop();
 	}
-	
-	//	TODO: Check, Possibly Unused Code
-	public String getVersionName() {
-		try {
-			return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
-		} catch (NameNotFoundException ex) {
-			return "Unknown";
-		}
-	}
 
-	//	TODO: Check, Possibly Unused Code
-	public String getIMEI() {
-		return ((TelephonyManager) getSystemService(TELEPHONY_SERVICE)).getDeviceId();
-	}
-	
-	/** {@inheritDoc} */
+	/**
+	 * 
+	 */
 	@Override
 	protected void onStart() {
 		super.onStart();
@@ -334,7 +343,9 @@ public class ActivityRecorderActivity extends Activity {
 		FlurryAgent.onStartSession(this, "EMKSQFUWSCW51AKBL2JJ");
 	}
 	
-	/** {@inheritDoc} */
+	/**
+	 * 
+	 */
 	@Override
 	protected void onStop() {
 		super.onStop();
@@ -342,7 +353,11 @@ public class ActivityRecorderActivity extends Activity {
 		FlurryAgent.onEndSession(this);
 	}
 	
-	// Function for copy database file to SDcard
+	/**
+	 * A utility method which copy the database to SD card.
+	 * @param targetFile database in the device repository.
+	 * @param copyFile path to be copied
+	 */
 	private void copy(String targetFile, String copyFile) {
 		try {
 			InputStream lm_oInput = new FileInputStream(new File(targetFile));
@@ -365,6 +380,11 @@ public class ActivityRecorderActivity extends Activity {
 	}
 	
 	
+	/**
+	 * 
+	 * @author Umran
+	 *
+	 */
 	private class StartServiceRunnable implements Runnable {
 		
 		private static final int DISPLAY_START_DIALOG = 0;
@@ -429,11 +449,13 @@ public class ActivityRecorderActivity extends Activity {
 		}
 		
 	}
-	
-	/*
+
+	/**
 	 * Performs scheduled user interface updates, also allows
-	 * 	other components to request the user interface to be updated,
-	 * 	without interfering with normal scheduled updates.
+	 * other components to request the user interface to be updated,
+	 * without interfering with normal scheduled updates.
+	 * @author Umran
+	 *
 	 */
 	private class UpdateInterfaceRunnable implements Runnable {
 		
@@ -487,13 +509,16 @@ public class ActivityRecorderActivity extends Activity {
 		}
 		
 		
-		/*
+
+		/**
+		 * 
 		 * changed from updateButton to updateUI
 		 * 
 		 * updates the user interface:
 		 * 	the toggle button's text is changed.
 		 * 	the classification list's entries are updated.
 		 * 
+		 * @throws ParseException
 		 */
 		@SuppressWarnings("unchecked")
 		private void updateUI() throws ParseException {
