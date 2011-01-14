@@ -408,14 +408,16 @@ public class RecorderService extends Service {
     public void onDestroy() {
         super.onDestroy();
 
-		Date date = new Date(System.currentTimeMillis());
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		String startTime = dateFormat.format(date);
-		// save message "END" to recognise when the background service is finished.
-		activityQuery.insertActivities("END", startTime, 0);
+
 		
         if (running) {
         	Log.i("Ondestroy","HERE");
+    		Date date = new Date(System.currentTimeMillis());
+    		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    		String startTime = dateFormat.format(date);
+    		// save message "END" to recognise when the background service is finished.
+    		activityQuery.insertActivities("END", startTime, 0);
+    		
         	ActivityRecorderActivity.serviceIsRunning=false;
 
             running = false;
