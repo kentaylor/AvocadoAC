@@ -53,8 +53,9 @@ public class UploadActivityHistoryThread extends Thread {
 	 * Initialise {@link ActivityQueries} class instance.
 	 * @param context context from Activity or Service classes passes to {@link ActivityQueries} class instance.
 	 */
-	public UploadActivityHistoryThread(Context context, ActivityQueries activityQuery, PhoneInfo info) {
+	public UploadActivityHistoryThread(Context context, ActivityQueries activityQuery, PhoneInfo phoneInfo) {
 		this.activityQuery = activityQuery;
+		this.phoneInfo = phoneInfo;
 		
     	String dbfile = Constants.PATH_ACTIVITY_RECORDS_FILE;
     	copy(Constants.PATH_ACTIVITY_RECORDS_DB,dbfile);

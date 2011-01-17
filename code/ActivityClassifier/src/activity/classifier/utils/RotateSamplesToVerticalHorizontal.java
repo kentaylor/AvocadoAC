@@ -23,8 +23,6 @@ public class RotateSamplesToVerticalHorizontal {
 	
 	private final static int X_AXIS = 0;
 	private final static int Y_AXIS = 1;
-	
-	@SuppressWarnings("unused")
 	private final static int Z_AXIS = 2;
 	
 	
@@ -69,23 +67,13 @@ public class RotateSamplesToVerticalHorizontal {
 	{
 		computeMeanVector(samples, gravityVec);
 		
+//		Log.v("TEST", "Gravity Vec="+vec2str(gravityVec)+" = "+calcMag(gravityVec));
+		
 		convertToHorVec(gravityVec, horizontalVec);
 		
-		if (!SensorManager.getRotationMatrix(rotationMat, null, gravityVec, horizontalVec)) {
-			//	sometimes fails, according to the api
-			return false;
-		}
+//		Log.v("TEST", "Hor Vec="+vec2str(horizontalVec)+" = "+calcMag(horizontalVec));
 		
-		//	apply to current samples
-		applyRotation(samples);
-		return true;
-	}
-	
-	private static double calcMag(float[] vec) {
-		double mag = 0.0f;
-		for (int i=0; i<DIM; ++i)
-			mag += vec[i]*vec[i];
-		return Math.sqrt(mag);
+		return internRotateToWorldCoordinates(samples, gravityVec, horizontalVec);
 	}
 	
 	/**
@@ -109,7 +97,7 @@ public class RotateSamplesToVerticalHorizontal {
 	 * function returns false, which means that the samples haven't
 	 * been altered. 
 	 * 
-	 * @param geoMagVec
+	 * @param geoMagSamples
 	 * Geo-magnetic vector to use in obtaining the rotation matrix.
 	 * 
 	 * @return
@@ -117,19 +105,49 @@ public class RotateSamplesToVerticalHorizontal {
 	 * matrix and hence unable to change the samples to world coordinates.
 	 * 
 	 */
-	public synchronized boolean rotateToWorldCoordinates(float[] samples, float[] geoMagVec)
+	public synchronized boolean rotateToWorldCoordinates(float[] samples, float[] geoMagSamples)
 	{
 		computeMeanVector(samples, gravityVec);
 		
-		if (!SensorManager.getRotationMatrix(rotationMat, null, gravityVec, geoMagVec)) {
+		computeMeanVector(geoMagSamples, horizontalVec);
+		
+		return internRotateToWorldCoordinates(samples, gravityVec, horizontalVec);
+	}
+	
+	private boolean internRotateToWorldCoordinates(float[] samples, float[] gravityVec, float[] horVec)
+	{
+//		Log.v("TEST", "Hor Vec="+vec2str(horizontalVec)+" = "+calcMag(horizontalVec));
+		
+		if (!SensorManager.getRotationMatrix(rotationMat, null, gravityVec, horVec)) {
 			//	sometimes fails, according to the api
 			return false;
 		}
 		
 		//	apply to current samples
 		applyRotation(samples);
-		
+		/*
+		CalcStatistics st = new CalcStatistics(samples, samples.length/3);
+		float[] min = st.getMin();
+		float[] max = st.getMax();
+		float[] mean = st.getMean();
+		float[] sd = st.getStandardDeviation();
+		if (	Math.abs(max[0]-min[0])>1.0 || 
+				Math.abs(max[1]-min[1])>1.0 || 
+				Math.abs(max[2]-min[2])>1.0	) {
+			for (int i=0; i<samples.length; i+=DIM) {
+				Log.v("TEST", "sample="+vec2str(samples,i));
+			}
+			Log.v("TEST", "min="+vec2str(min)+", max="+vec2str(max)+", mean="+vec2str(mean)+", s.d.="+vec2str(sd));
+		}
+		*/
 		return true;
+	}
+	
+	private static float calcMag(float[] vec) {
+		double mag = 0.0f;
+		for (int i=0; i<DIM; ++i)
+			mag += vec[i]*vec[i];
+		return (float)Math.sqrt(mag);
 	}
 	
 	/**
@@ -139,6 +157,12 @@ public class RotateSamplesToVerticalHorizontal {
 	 * samples to apply the current rotation matrix to
 	 * index:		[ 0 ][ 1 ][ 2 ][ 3 ][ 4 ][ 5 ]...
 	 * dimension:   [ x ][ y ][ z ][ x ][ y ][ z ]... 
+	 * 
+	 * rotation matrix:
+	 * [ 0 ][ 1 ][ 2 ]
+	 * [ 3 ][ 4 ][ 5 ]
+	 * [ 6 ][ 7 ][ 8 ]
+	 *
 	 */
 	private void applyRotation(float[] samples)
 	{
@@ -201,7 +225,7 @@ public class RotateSamplesToVerticalHorizontal {
 		
 		if (indexSmallest<0) {
 			throw new RuntimeException("index of the smallest element among "+
-			                           Arrays.toString(inGravityVec)+" couldn't be found!");
+			                           vec2str(inGravityVec)+" couldn't be found!");
 		}
 		
 		//	assign the smallest to the first value of the vector (x)
@@ -242,5 +266,13 @@ public class RotateSamplesToVerticalHorizontal {
 		}
 		return index;
 	}
+	
+	private static String vec2str(float[] vec) {
+		return String.format("{x=% 3.2f, y=% 3.2f, z=% 3.2f}", vec[X_AXIS], vec[Y_AXIS], vec[Z_AXIS]);
+	}
 
+	private static String vec2str(float[] vec, int start) {
+		return String.format("{x=% 3.2f, y=% 3.2f, z=% 3.2f}", vec[start+X_AXIS], vec[start+Y_AXIS], vec[start+Z_AXIS]);
+	}
+	
 }

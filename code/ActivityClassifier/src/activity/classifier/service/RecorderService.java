@@ -77,9 +77,9 @@ import android.widget.Toast;
  */
 public class RecorderService extends Service {
 	
-	AccelReader reader;
-	Sampler sampler;
-	final Aggregator aggregator = new Aggregator();
+	private AccelReader reader;
+	private Sampler sampler;
+	private final Aggregator aggregator = new Aggregator();
 	
 	private String chargingState = "";
 	
@@ -97,7 +97,7 @@ public class RecorderService extends Service {
 	private OptionQueries optionQuery;
 	private ActivityQueries activityQuery;
 	
-	boolean running;
+	private boolean running;
 	
 	public static Map<Float[], String> model;
 	
@@ -106,10 +106,10 @@ public class RecorderService extends Service {
 	private Boolean SCREEN_DIM_WAKE_LOCK_MANAGER_IsAcquired = false;
 	private Boolean PARTIAL_WAKE_LOCK_MANAGER_IsAcquired = false;
 	
-	PowerManager pm;
+	private PowerManager pm;
 	
-	final List<Classification> adapter = new ArrayList<Classification>();
-	String lastAc = "NONE";
+	private final List<Classification> adapter = new ArrayList<Classification>();
+	private String lastAc = "NONE";
 	
 	private PhoneInfo phoneInfo;
 	
