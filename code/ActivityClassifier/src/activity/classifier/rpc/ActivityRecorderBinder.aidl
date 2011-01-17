@@ -19,9 +19,7 @@ interface ActivityRecorderBinder {
 
     List<Classification> getClassifications();
     
-    void SetWakeLock(boolean wakelock);
-    
-    void SetPhoneInformation(String AccountName, String ModelName, String IMEI);
+    void setWakeLock(boolean wakelock);
     
     
 
