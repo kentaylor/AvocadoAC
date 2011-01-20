@@ -21,7 +21,8 @@ public class ActivityQueries extends Queries{
 	 * ArrayList data type to store un-posted items.
 	 */
 	private ArrayList<String> ItemNames = new ArrayList<String>();
-	private ArrayList<String> ItemDates = new ArrayList<String>();
+	private ArrayList<String> ItemStartDates = new ArrayList<String>();
+	private ArrayList<String> ItemEndDates = new ArrayList<String>();
 	private ArrayList<Integer> ItemIDs = new ArrayList<Integer>();
 	
 	/**
@@ -69,7 +70,7 @@ public class ActivityQueries extends Queries{
 		int i=0;
 		for(result.moveToFirst(); result.moveToNext(); result.isAfterLast()) {
 			
-	    	uncheckedItems.add(Integer.parseInt(result.getString(0))+","+result.getString(1)+","+result.getString(2));
+	    	uncheckedItems.add(Integer.parseInt(result.getString(0))+","+result.getString(1)+","+result.getString(2)+","+result.getString(3));
 	    	Log.i("uncheckedItems",uncheckedItems.get(i));
 	    	i++;
 	    }
@@ -83,7 +84,35 @@ public class ActivityQueries extends Queries{
 		seperateItems(uncheckedItems);
 		setUncheckedItemsSize(uncheckedItems.size());
 	}
+	public String getItemNameFromActivityTable(long rowId){
+		dbAdapter.open();
+		String result = dbAdapter.fetchLastItemNames(rowId);
+		dbAdapter.close();
+		return result;
+	}
+	public String getItemEndDateFromActivityTable(long rowId){
+		dbAdapter.open();
+		String result = dbAdapter.fetchLastItemEndDate(rowId);
+		dbAdapter.close();
+		return result;
+	}
+	public void updateNewItems(long ItemIDs, String ItemEndDates){
+		dbAdapter.open();
+		dbAdapter.updateNewItemstoActivityTable(ItemIDs, ItemEndDates);
+		dbAdapter.close();
+	}
 	
+	public int getSizeOfTable(){
+		dbAdapter.open();
+		Cursor result = dbAdapter.fetchSizeOfRow();
+		int count=0;
+		for(result.moveToFirst(); result.moveToNext(); result.isAfterLast()) {
+	    	count++;
+	    }
+		result.close();
+		dbAdapter.close();
+		return count;
+	}
 	/**
 	 * Update un-posted items 
 	 * @param ItemIDs row Id
@@ -91,9 +120,9 @@ public class ActivityQueries extends Queries{
 	 * @param ItemDates activity date
 	 * @param isChecked sent item state
 	 */
-	public void updateUncheckedItems(long ItemIDs, String ItemNames, String ItemDates, int isChecked){
+	public void updateUncheckedItems(long ItemIDs, String ItemNames, String ItemStartDates, String ItemEndDates, int isChecked){
 		dbAdapter.open();
-		dbAdapter.updateItemsToActivityTable(ItemIDs, ItemNames, ItemDates, isChecked);
+		dbAdapter.updateItemsToActivityTable(ItemIDs, ItemNames, ItemStartDates, ItemEndDates, isChecked);
 		dbAdapter.close();
 	}
 	
@@ -106,7 +135,8 @@ public class ActivityQueries extends Queries{
 			String[] line = uncheckedItems.get(i).split(",");
 			ItemIDs.add(Integer.parseInt(line[0]));
 			ItemNames.add(line[1]);
-			ItemDates.add(line[2]);
+			ItemStartDates.add(line[2]);
+			ItemEndDates.add(line[3]);
 		}
 	}
 	
@@ -127,11 +157,19 @@ public class ActivityQueries extends Queries{
 	}
 	
 	/**
-	 * Get un-posted activity date
+	 * Get un-posted activity start date
 	 * @return String type ArrayList of activity dates
 	 */
-	public ArrayList<String> getUncheckedItemDates(){
-		return ItemDates;
+	public ArrayList<String> getUncheckedItemStartDates(){
+		return ItemStartDates;
+	}
+	
+	/**
+	 * Get un-posted activity end date
+	 * @return String type ArrayList of activity dates
+	 */
+	public ArrayList<String> getUncheckedItemEndDates(){
+		return ItemEndDates;
 	}
 	
 	/**

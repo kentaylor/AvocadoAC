@@ -76,7 +76,8 @@ public class UploadActivityHistory {
         	    
         	    // ArrayList data type for un-sent activities.
         	    ArrayList<String> ItemNames = new ArrayList<String>();
-        	    ArrayList<String> ItemDates = new ArrayList<String>();
+        	    ArrayList<String> ItemStartDates = new ArrayList<String>();
+        	    ArrayList<String> ItemEndDates = new ArrayList<String>();
         	    ArrayList<Integer> ItemIDs = new ArrayList<Integer>();
         	    
         	   
@@ -86,8 +87,8 @@ public class UploadActivityHistory {
         	    
         	    ItemIDs = activityQuery.getUncheckedItemIDs();
         	    ItemNames = activityQuery.getUncheckedItemNames();
-        	    ItemDates = activityQuery.getUncheckedItemDates();
-        	    
+        	    ItemStartDates = activityQuery.getUncheckedItemStartDates();
+        	    ItemEndDates = activityQuery.getUncheckedItemEndDates();
         	    //get the number of un-posted activities
         	    int size=activityQuery.getUncheckedItemsSize();
         	    
@@ -103,15 +104,15 @@ public class UploadActivityHistory {
         	    	//merge information of activities
         		    for(int i = 0 ; i<size;i++){
         		    	if(i==size){
-        		    		message +=  ItemNames.get(i)+"&&"+ItemDates.get(i);
+        		    		message +=  ItemNames.get(i)+"&&"+ItemStartDates.get(i);
         		    	}else{
-        		    		message +=  ItemNames.get(i)+"&&"+ItemDates.get(i)+"##";
+        		    		message +=  ItemNames.get(i)+"&&"+ItemStartDates.get(i)+"##";
         		    	}
         		    }
         		    
         		    //send un-posted activities with the size, date, and Google account to Web server.
         		    try {
-        		    	DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        		    	DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z z");
         		    	Date systemdate = Calendar.getInstance().getTime();
         		    	String reportDate = df.format(systemdate);
         		    	post.setHeader("sysdate",reportDate);
@@ -125,13 +126,17 @@ public class UploadActivityHistory {
         		        
         		        // update un-posted items to posted in device repository.
         		        for(int i=0;i<size;i++){
-        		        	activityQuery.updateUncheckedItems(ItemIDs.get(i), ItemNames.get(i), ItemDates.get(i), 1);
+        		        	activityQuery.updateUncheckedItems(ItemIDs.get(i), ItemNames.get(i), ItemStartDates.get(i),ItemEndDates.get(i), 1);
                 		}
     	            // if any failure of the response
         		    } catch (IOException ex) {
         	            	Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
         		    }
         	    }
+        	    ItemIDs.clear();
+        	    ItemNames.clear();
+        	    ItemStartDates.clear();
+        	    ItemEndDates.clear();
         		
             }
         }, 300000, 300000);

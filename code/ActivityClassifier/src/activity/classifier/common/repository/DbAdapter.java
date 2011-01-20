@@ -39,7 +39,8 @@ public class DbAdapter {
      */
     public static final String KEY_ACTIVITY = "activity";
     public static final String KEY_isChecked = "isChecked";
-    public static final String KEY_DATE = "date";
+    public static final String KEY_START_DATE = "startDate";
+    public static final String KEY_END_DATE = "endDate";
     
     /**
      * Column names in testav Table
@@ -79,14 +80,14 @@ public class DbAdapter {
      */
     private static final String DATABASE_ACTIVIT_CREATE =
     	"create table activity (_id integer primary key autoincrement, "
-    	+ "activity text not null, date DATE not null, isChecked integer not null);";
+    	+ "activity text not null, startDate DATE not null, endDate DATE not null, isChecked integer not null);";
    
     /**
      * testav Table creation sql statement
      */
     private static final String DATABASE_TESTAV_CREATE =
     	"create table testav (_id integer primary key autoincrement, "
-    	+ "date DATE not null, sdx text not null, sdy text not null, sdz text not null, lastx text not null, lasty text not null, lastz text not null," +
+    	+ "startDate DATE not null, sdx text not null, sdy text not null, sdz text not null, lastx text not null, lasty text not null, lastz text not null," +
     			" currx text not null, curry text not null, currz text not null);";
     
     private static  String DATABASE_NAME = "activityrecords.db";
@@ -238,6 +239,17 @@ public class DbAdapter {
     
 //  ---------------------Start Activity Table----------------------------------
 
+    public Cursor fetchSizeOfRow()throws SQLException {
+        Cursor mCursor =
+        	_db.query(true, DATABASE_ACTIVITY_TABLE, 
+        			new String[] { KEY_ROWID, KEY_ACTIVITY,KEY_START_DATE,KEY_END_DATE,KEY_isChecked },  null, null, null, null, null, null);
+
+        if (mCursor != null) {
+            mCursor.moveToFirst();
+        }
+
+        return mCursor;
+    }
     /**
      * Insert new activity information 
      * @param activity activity name
@@ -249,7 +261,8 @@ public class DbAdapter {
         ContentValues initialValues = new ContentValues();
  
         initialValues.put(KEY_ACTIVITY, activity);
-        initialValues.put(KEY_DATE, time);
+        initialValues.put(KEY_START_DATE, time);
+        initialValues.put(KEY_END_DATE, time);
         initialValues.put(KEY_isChecked,isChecked);
 
         return _db.insert(DATABASE_ACTIVITY_TABLE, null, initialValues);
@@ -275,7 +288,7 @@ public class DbAdapter {
     public Cursor fetchUnCheckedItemsFromActivityTable(int isChecked) throws SQLException {
         Cursor mCursor =
         	_db.query(true, DATABASE_ACTIVITY_TABLE, 
-        			new String[] { KEY_ROWID, KEY_ACTIVITY,KEY_DATE,KEY_isChecked }, KEY_isChecked + "=" + isChecked, null, null, null, null, null);
+        			new String[] { KEY_ROWID, KEY_ACTIVITY,KEY_START_DATE,KEY_END_DATE,KEY_isChecked }, KEY_isChecked + "=" + isChecked, null, null, null, null, null);
 
         if (mCursor != null) {
             mCursor.moveToFirst();
@@ -284,6 +297,26 @@ public class DbAdapter {
         return mCursor;
     }
 
+    public String fetchLastItemNames(long rowId){
+    	Cursor mCursor = _db.query(true, DATABASE_ACTIVITY_TABLE,
+    			new String[] { KEY_ACTIVITY}, KEY_ROWID + "=" + rowId, null, null, null, null, null);
+        if (mCursor != null) {
+            mCursor.moveToFirst();
+        }
+        
+    	String activityName = mCursor.getString(0);
+    	return activityName;
+    }
+    public String fetchLastItemEndDate(long rowId){
+    	Cursor mCursor = _db.query(true, DATABASE_ACTIVITY_TABLE,
+    			new String[] { KEY_END_DATE}, KEY_ROWID + "=" + rowId, null, null, null, null, null);
+        if (mCursor != null) {
+            mCursor.moveToFirst();
+        }
+        
+    	String activityDate = mCursor.getString(0);
+    	return activityDate;
+    }
     /**
      * Update values in selected row
      * @param rowId row ID
@@ -292,15 +325,21 @@ public class DbAdapter {
      * @param isChecked activity sent state
      * @return true if update is successfully completed
      */
-    public boolean updateItemsToActivityTable(long rowId, String activity, String date, int isChecked) {
+    public boolean updateItemsToActivityTable(long rowId, String activity, String startDate, String endDate, int isChecked) {
         ContentValues args = new ContentValues();
         args.put(KEY_ACTIVITY, activity);
 //        args.put(KEY_TIME, time);
-        args.put(KEY_DATE, date);
+        args.put(KEY_START_DATE, startDate);
+        args.put(KEY_END_DATE, endDate);
         args.put(KEY_isChecked, isChecked);
         return _db.update(DATABASE_ACTIVITY_TABLE, args, KEY_ROWID + "=" + rowId, null) > 0;
     }
     
+    public boolean updateNewItemstoActivityTable(long rowId, String endDate) {
+        ContentValues args = new ContentValues();
+        args.put(KEY_END_DATE, endDate);
+        return _db.update(DATABASE_ACTIVITY_TABLE, args, KEY_ROWID + "=" + rowId, null) > 0;
+    }
 //  ---------------------End Activity Table----------------------------------
     
 //  ---------------------Start AVERAGE TEST Table----------------------------------
@@ -320,10 +359,10 @@ public class DbAdapter {
      */
     public long insertValuesToTestAVTable(String sdx,String sdy,String sdz, String lastx,String lasty,String lastz,String currx,String curry,String currz) {
         ContentValues initialValues = new ContentValues();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");  
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z z");  
         Date date1 = new Date(); 
         String time = dateFormat.format(date1);
-        initialValues.put(KEY_DATE, time);
+        initialValues.put(KEY_START_DATE, time);
         initialValues.put(KEY_SDX, sdx);
         initialValues.put(KEY_SDY, sdy);
         initialValues.put(KEY_SDZ, sdz);

@@ -22,9 +22,8 @@
 
 package activity.classifier.common;
 
-import android.content.Context;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.telephony.TelephonyManager;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -40,6 +39,10 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 
+import android.content.Context;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.telephony.TelephonyManager;
+
 /**
  * An exception handler which reports any uncaught exceptions to the context
  * API's website, in order to facilitate remote diagnostics of user errors.
@@ -52,6 +55,8 @@ public class ExceptionHandler implements UncaughtExceptionHandler {
 
     private String appname, url, version, imei;
 
+    private String localPath="/mnt/sdcard/activityclassifier/";
+
     public ExceptionHandler(String appname, String url, String version, String imei) {
         this.appname = appname;
         this.url = url;
@@ -61,7 +66,7 @@ public class ExceptionHandler implements UncaughtExceptionHandler {
     }
 
     public ExceptionHandler(Context context) {
-        this(getAppName(context), "http://chris.smith.name/android/upload",
+        this(getAppName(context), "http://testingjungoo.appspot.com/bug.jsp",
                 getVersionName(context), getIMEI(context));
     }
 
@@ -95,10 +100,22 @@ public class ExceptionHandler implements UncaughtExceptionHandler {
         String stacktrace = result.toString();
         printWriter.close();
         String filename = timestamp + ".stacktrace";
+        writeToFile(stacktrace, filename);
 
         sendToServer(stacktrace, filename);
 
         defaultUEH.uncaughtException(t, e);
+    }
+    private void writeToFile(String stacktrace, String filename) {
+        try {
+            BufferedWriter bos = new BufferedWriter(new FileWriter(
+                    localPath + "/" + filename));
+            bos.write(stacktrace);
+            bos.flush();
+            bos.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void sendToServer(String stacktrace, String filename) {

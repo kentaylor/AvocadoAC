@@ -21,6 +21,7 @@ public class Classification implements Parcelable {
 
     private CharSequence niceClassification;
     private String startTime;
+    private String endTime;
     private String duration="";
     private final String classification;
     private final long start;
@@ -37,6 +38,9 @@ public class Classification implements Parcelable {
 
     public String getStartTime(){
     	return startTime;
+    }
+    public String getEndTime(){
+    	return endTime;
     }
     public String getDuration(){
     	return duration;
@@ -103,11 +107,12 @@ public class Classification implements Parcelable {
         
 
         Date date = new Date(start);
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); 
+        Date enddate = new Date(end);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z z"); 
 //        java.text.SimpleDateFormat timeFormat = (SimpleDateFormat) SimpleDateFormat.getTimeInstance();
-
-        startTime = dateFormat.format(date);
         
+        startTime = dateFormat.format(date);
+        endTime = dateFormat.format(enddate);
         return this;
     }
 

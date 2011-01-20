@@ -15,10 +15,8 @@ import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
 import activity.classifier.R;
-import activity.classifier.R.id;
-import activity.classifier.R.layout;
-import activity.classifier.R.string;
 import activity.classifier.common.CommonDef;
+import activity.classifier.common.ExceptionHandler;
 import activity.classifier.common.repository.OptionQueries;
 import activity.classifier.common.service.RecorderService;
 import activity.classifier.rpc.ActivityRecorderBinder;
@@ -296,6 +294,7 @@ public class ActivityRecorderActivity extends Activity {
 	@Override
 	public void onCreate(Bundle icicle) {
 		super.onCreate(icicle);
+		Thread.setDefaultUncaughtExceptionHandler(new ExceptionHandler(this));
 		EnableDeletion = false;
 		optionQuery = new OptionQueries(this);
 		setContentView(R.layout.main);
