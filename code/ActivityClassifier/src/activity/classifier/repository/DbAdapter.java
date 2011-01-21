@@ -298,6 +298,11 @@ public class DbAdapter {
         return mCursor;
     }
 
+    /**
+     * 
+     * @param rowId activity table row ID
+     * @return activity name related to the row ID
+     */
     public String fetchLastItemNames(long rowId){
     	Cursor mCursor = _db.query(true, DATABASE_ACTIVITY_TABLE,
     			new String[] { KEY_ACTIVITY}, KEY_ROWID + "=" + rowId, null, null, null, null, null);
@@ -308,6 +313,12 @@ public class DbAdapter {
     	String activityName = mCursor.getString(0);
     	return activityName;
     }
+    
+    /**
+     * 
+     * @param rowId activity table row ID
+     * @return activity end date related to the row ID
+     */
     public String fetchLastItemEndDate(long rowId){
     	Cursor mCursor = _db.query(true, DATABASE_ACTIVITY_TABLE,
     			new String[] { KEY_END_DATE}, KEY_ROWID + "=" + rowId, null, null, null, null, null);
@@ -336,6 +347,12 @@ public class DbAdapter {
         return _db.update(DATABASE_ACTIVITY_TABLE, args, KEY_ROWID + "=" + rowId, null) > 0;
     }
     
+    /**
+     * 
+     * @param rowId activity table row ID
+     * @param endDate activity end date
+     * @return true if update is successfully completed
+     */
     public boolean updateNewItemstoActivityTable(long rowId, String endDate) {
         ContentValues args = new ContentValues();
         args.put(KEY_END_DATE, endDate);

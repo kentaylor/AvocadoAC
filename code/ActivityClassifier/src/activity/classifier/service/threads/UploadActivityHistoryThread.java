@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -121,6 +122,7 @@ public class UploadActivityHistoryThread extends Thread {
 				uploadData(accountName);
 				uploading = false;
 				lastUploadTime = currentTime;
+				Log.i("upload","ok");
 			}
         }
 		
@@ -136,15 +138,16 @@ public class UploadActivityHistoryThread extends Thread {
 	    
 	    // ArrayList data type for un-sent activities.
 	    ArrayList<String> itemNames = new ArrayList<String>();
-	    ArrayList<String> itemDates = new ArrayList<String>();
+	    ArrayList<String> itemStartDates = new ArrayList<String>();
+	    ArrayList<String> itemEndDates = new ArrayList<String>();
 	    ArrayList<Integer> itemIDs = new ArrayList<Integer>();
-	    
 	    //open database and check the un-posted data
 	    activityQuery.getUncheckedItemsFromActivityTable(0);
 	    
 	    itemIDs = activityQuery.getUncheckedItemIDs();
 	    itemNames = activityQuery.getUncheckedItemNames();
-	    itemDates = activityQuery.getUncheckedItemDates();
+	    itemStartDates = activityQuery.getUncheckedItemStartDates();
+	    itemEndDates = activityQuery.getUncheckedItemEndDates();
 	    
 	    //get the number of un-posted activities
 	    int size=activityQuery.getUncheckedItemsSize();
@@ -158,18 +161,29 @@ public class UploadActivityHistoryThread extends Thread {
 	     */
 	    if(size!=0){
 	    	String message = "";
+	    	DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    	DateFormat df1 = new SimpleDateFormat("Z z");
 	    	//merge information of activities
 		    for(int i = 0 ; i<size;i++){
-		    	if(i==size){
-		    		message +=  itemNames.get(i)+"&&"+itemDates.get(i);
-		    	}else{
-		    		message +=  itemNames.get(i)+"&&"+itemDates.get(i)+"##";
-		    	}
+		    	Date tempdate;
+				try {
+					tempdate = df.parse(itemStartDates.get(i));
+				
+			    	if(i==size){
+			    		message +=  itemNames.get(i)+"&&"+itemStartDates.get(i)+"&&"+df1.format(tempdate);
+			    	}else{
+			    		message +=  itemNames.get(i)+"&&"+itemStartDates.get(i)+"&&"+df1.format(tempdate)+"##";
+			    	}
+				} catch (ParseException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 		    }
 		    
 		    //send un-posted activities with the size, date, and Google account to Web server.
 		    try {
-		    	DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    	
+		    	
 		    	Date systemdate = Calendar.getInstance().getTime();
 		    	String reportDate = df.format(systemdate);
 		    	post.setHeader("sysdate",reportDate);
@@ -183,12 +197,16 @@ public class UploadActivityHistoryThread extends Thread {
 		        
 		        // update un-posted items to posted in device repository.
 		        for(int i=0;i<size;i++){
-		        	activityQuery.updateUncheckedItems(itemIDs.get(i), itemNames.get(i), itemDates.get(i), 1);
+		        	activityQuery.updateUncheckedItems(itemIDs.get(i), itemNames.get(i), itemStartDates.get(i),itemEndDates.get(i), 1);
         		}
             // if any failure of the response
 		    } catch (IOException ex) {
 	            	Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
-		    }
+		    } 
+		    itemIDs.clear();
+		    itemNames.clear();
+		    itemStartDates.clear();
+		    itemEndDates.clear();
 	    }	
 	}
 

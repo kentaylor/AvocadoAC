@@ -18,6 +18,7 @@ import activity.classifier.repository.OptionQueries;
 import activity.classifier.service.RecorderService;
 import activity.classifier.utils.PhoneInfo;
 import android.content.Context;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 /**
@@ -58,7 +59,7 @@ public class AccountThread extends Thread {
     }
     
 	public void run() {
-		
+		Looper.prepare();
 		boolean sent = false;
 		do {
 			String accountName = phoneInfo.getAccountName();
@@ -75,7 +76,7 @@ public class AccountThread extends Thread {
 			}
 			
 		} while (!sent);
-			
+		Looper.loop();
 	}
 
     /**

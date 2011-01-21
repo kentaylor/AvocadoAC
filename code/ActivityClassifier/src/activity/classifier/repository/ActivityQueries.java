@@ -89,25 +89,47 @@ public class ActivityQueries extends Queries{
 		seperateItems(uncheckedItems);
 		setUncheckedItemsSize(uncheckedItems.size());
 	}
-	public String getItemNameFromActivityTable(long rowId){
+	
+	/**
+	 * 
+	 * @param rowId table row ID
+	 * @return activity name related to the row ID
+	 */
+	public synchronized String getItemNameFromActivityTable(long rowId){
 		dbAdapter.open();
 		String result = dbAdapter.fetchLastItemNames(rowId);
 		dbAdapter.close();
 		return result;
 	}
-	public String getItemEndDateFromActivityTable(long rowId){
+	
+	/**
+	 * 
+	 * @param rowId table row ID
+	 * @return end date related to the row ID
+	 */
+	public synchronized String getItemEndDateFromActivityTable(long rowId){
 		dbAdapter.open();
 		String result = dbAdapter.fetchLastItemEndDate(rowId);
 		dbAdapter.close();
 		return result;
 	}
-	public void updateNewItems(long ItemIDs, String ItemEndDates){
+	
+	/**
+	 * 
+	 * @param ItemIDs row ID
+	 * @param ItemEndDates activity end time
+	 */
+	public synchronized void updateNewItems(long ItemIDs, String ItemEndDates){
 		dbAdapter.open();
 		dbAdapter.updateNewItemstoActivityTable(ItemIDs, ItemEndDates);
 		dbAdapter.close();
 	}
 	
-	public int getSizeOfTable(){
+	/**
+	 * 
+	 * @return the size of the activity table (the number of the rows)
+	 */
+	public synchronized int getSizeOfTable(){
 		dbAdapter.open();
 		Cursor result = dbAdapter.fetchSizeOfRow();
 		int count=0;
@@ -118,6 +140,7 @@ public class ActivityQueries extends Queries{
 		dbAdapter.close();
 		return count;
 	}
+	
 	/**
 	 * Update un-posted items 
 	 * @param itemIDs row Id
@@ -125,7 +148,7 @@ public class ActivityQueries extends Queries{
 	 * @param itemDates activity date
 	 * @param isChecked sent item state
 	 */
-	public void updateUncheckedItems(long ItemIDs, String ItemNames, String ItemStartDates, String ItemEndDates, int isChecked){
+	public synchronized void updateUncheckedItems(long ItemIDs, String ItemNames, String ItemStartDates, String ItemEndDates, int isChecked){
 		dbAdapter.open();
 		dbAdapter.updateItemsToActivityTable(ItemIDs, ItemNames, ItemStartDates, ItemEndDates, isChecked);
 		dbAdapter.close();

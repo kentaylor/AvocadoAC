@@ -69,7 +69,7 @@ public class ClassifierService extends Service  implements Runnable {
     private final int CALIBRATION_PERIOD = 5;
     
     private float[] ssd = new float[3];
-    
+    float valueOfGravity;
     private OptionQueries optionQuery;
     private TestAVQueries testavQuery;
     
@@ -156,6 +156,7 @@ public class ClassifierService extends Service  implements Runnable {
 		ssd[0] = optionQuery.getStandardDeviationX();
 		ssd[1] = optionQuery.getStandardDeviationY();
 		ssd[2] = optionQuery.getStandardDeviationZ();
+		valueOfGravity = optionQuery.getCalibrationValue();
 		
 		float[] sd = new float[3];
 		float[] average = { 0, 0, 0 };
@@ -186,13 +187,13 @@ public class ClassifierService extends Service  implements Runnable {
 				if (calibration.getCount() == CALIBRATION_PERIOD) {
 					float[] tempSSD = new float[3];
 					tempSSD = calibration.getSSD();
-					
 					for (int i = 0; i < 3; i++) {
 						ssd[i] = tempSSD[i];
 					}
-					
+					valueOfGravity = calibration.getValueOfGravity();
 					Log.i("Calibration", "saved in datastore");
 					optionQuery.setCalibrationState("1");
+					optionQuery.setCalibrationValue(valueOfGravity+"");
 					optionQuery.setStandardDeviationX(ssd[0] + "");
 					optionQuery.setStandardDeviationY(ssd[1] + "");
 					optionQuery.setStandardDeviationZ(ssd[2] + "");

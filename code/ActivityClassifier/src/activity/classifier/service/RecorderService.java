@@ -243,15 +243,7 @@ public class RecorderService extends Service {
 														: null));
 			
 			startService(intent);
-			
-			// every time the analyseRunnable runs, it calls InsertNewActivity()
-			// to store new data.
-			try {
-				InsertNewActivity();
-			} catch (ParseException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+
 		}
 		
 	};
@@ -298,6 +290,23 @@ public class RecorderService extends Service {
 			applyWakeLock(true);
 		}
 		
+		/*
+		 * if the background service is dead somehow last time, there is no clue when the service is finished.
+		 * Check the last activity name whether it's finished properly or not by the activity name "END",
+		 * then if it was not "END", then insert "END" data into the database with the end time of the last activity. 
+		 */
+		int count = activityQuery.getSizeOfTable()+1;
+        Log.i("countActivityTable","#"+count);
+        if(count > 1){
+	    	String lastActivity = activityQuery.getItemNameFromActivityTable(count);
+	    	if(!lastActivity.equals("END")){
+	    		String endDate = activityQuery.getItemEndDateFromActivityTable(count);
+	    		
+	    		activityQuery.insertActivities("END", endDate, 0);
+	    	}
+        }
+        
+        
 		reader = new AccelReaderFactory().getReader(this);
 		sampler = new Sampler(handler, reader, analyseRunnable);
 		
@@ -333,40 +342,26 @@ public class RecorderService extends Service {
 	 * @throws ParseException
 	 */
 	void InsertNewActivity() throws ParseException {
-		try {
-			if (classifications.isEmpty()) {
-				adapter.clear();
-			} else {
-				if (!adapter.isEmpty()) {
-					final Classification myLast = adapter.get(adapter.size() - 1);
-					final Classification expected = classifications.get(classifications.size() - 1);
-					
-					if (!myLast.getClassification().equals(expected.getClassification())) {
-						// Just update the end time
-						adapter.add(expected);
-					}
-				} else
-					if (adapter.isEmpty()) {
-						adapter.add(classifications.get(0));
-						Log.i("Empty?", "yes");
-					}
-				
-				String activity = adapter.get(adapter.size() - 1).getNiceClassification();
-				String newAc = activity;
-				
-				if (!lastAc.equals(newAc)) {
-					Log.i("lastAc", lastAc);
-					Log.i("newAc", newAc);
-					
-					String date = adapter.get(adapter.size() - 1).getStartTime();
-					activityQuery.insertActivities(activity, date, 0);
-				}
-				lastAc = newAc;
-			}
-			
-		} catch (Exception ex) {
-			Log.e(getClass().getName(), "Unable to get service state", ex);
-		}
+    	try {
+    		String activity = classifications.get(classifications.size()-1).withContext(this).getNiceClassification();
+    		String startDate  = classifications.get(classifications.size()-1).getStartTime();
+    		
+    		if(activity!=null && !lastAc.equals(activity)){
+    			Log.i("classification",activity);
+    			int count = activityQuery.getSizeOfTable()+1;
+    			activityQuery.updateNewItems(count, startDate);
+    			activityQuery.insertActivities(activity, startDate, 0);
+    			
+    			
+    		}else{
+    			int count = activityQuery.getSizeOfTable()+1;
+    			activityQuery.updateNewItems(count, classifications.get(classifications.size()-1).getEndTime());
+    		}
+    		
+    		lastAc=activity;
+	    } catch (Exception ex) {
+	    	Log.e(getClass().getName(), "Unable to get service state", ex);
+	    } 
 		
 	}
 	
@@ -384,6 +379,12 @@ public class RecorderService extends Service {
 			}
 			// }
 		}
+		try {
+			InsertNewActivity();
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	@Override
@@ -393,7 +394,7 @@ public class RecorderService extends Service {
 		if (running) {
 			Log.i("Ondestroy", "HERE");
 			Date date = new Date(System.currentTimeMillis());
-			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z z");
 			String startTime = dateFormat.format(date);
 			// save message "END" to recognise when the background service is
 			// finished.

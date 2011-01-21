@@ -14,6 +14,7 @@ public class Calibration {
 	private static float[] sd = {0,0,0};
 	private static float[] mean = {0,0,0};
 	
+	private static float valueOfGravity=1;
 	private boolean isCalibrated;
 	
 	private static int count=0;
@@ -54,6 +55,13 @@ public class Calibration {
 	
 	/**
 	 * 
+	 * @return the value of calibrated gravity
+	 */
+	public float getValueOfGravity(){
+		return valueOfGravity;
+	}
+	/**
+	 * 
 	 * @return true if the application have done the calibration.
 	 */
 	public boolean isCalibrated(){
@@ -92,6 +100,10 @@ public class Calibration {
 		}
 		Log.i("Calitest",this.mean[0]+" "+this.mean[1]+" "+this.mean[2]+" ");
 		Log.i("Calitest",this.sd[0]+" "+this.sd[1]+" "+this.sd[2]+" ");
+		if(count==5){
+			this.valueOfGravity = (float) (9.81/(Math.sqrt(this.mean[0]*this.mean[0]+this.mean[1]*this.mean[1]+this.mean[2]*this.mean[2])));
+			
+		}
 	}
 	
 }

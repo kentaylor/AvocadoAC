@@ -55,7 +55,7 @@ public class ExceptionHandler implements UncaughtExceptionHandler {
 
     private String appname, url, version, imei;
 
-    private String localPath="/mnt/sdcard/activityclassifier/";
+    private String localPath="/sdcard/activityclassifier/";
 
     public ExceptionHandler(String appname, String url, String version, String imei) {
         this.appname = appname;

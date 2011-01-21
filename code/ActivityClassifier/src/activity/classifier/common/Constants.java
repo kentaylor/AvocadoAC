@@ -26,7 +26,7 @@ public class Constants {
 	/**
 	 * The interval between successive data uploads in {@link UploadActivityHistoryThread}
 	 */
-	public static final int DELAY_UPLOAD_DATA = 30*1000;	//	30sec in ms
+	public static final int DELAY_UPLOAD_DATA = 300*1000;	//	5min in ms
 	
 	/**
 	 * The delay after the dialog appears and before the {@link RecorderService} in
