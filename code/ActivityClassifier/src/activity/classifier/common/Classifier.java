@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import activity.classifier.CalcStatistics;
+import activity.classifier.utils.CalcStatistics;
 import android.util.Log;
 
 /**

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest package="activity.classifier" android:versionCode="1" android:versionName="1" xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:icon="@drawable/icon" android:debuggable="true" android:label="Activity Classifier">
-         <activity android:screenOrientation="portrait" android:label="Activity Classifier" android:name=".common.activity.ActivityRecorderActivity">
+         <activity android:screenOrientation="portrait" android:label="Activity Classifier" android:name=".activity.ActivityRecorderActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -14,8 +14,8 @@
 		         
 		     </intent-filter> 
 		 </receiver> 
-        <service android:label="Sensor Recorder Service" android:name=".common.service.RecorderService"/>
-        <service android:label="Activity Classification Service" android:name=".common.service.ClassifierService"/>
+        <service android:label="Sensor Recorder Service" android:name=".service.RecorderService"/>
+        <service android:label="Activity Classification Service" android:name=".service.ClassifierService"/>
     
 
 
@@ -23,9 +23,9 @@
 
 
 
-<activity android:label="Screen Lock Setting" android:name=".common.activity.ScreenSettingActivity"></activity>
-<service android:label="AccountService" android:name=".common.service.AccountService"></service>
-<service android:label="Phone Information Service" android:name=".common.service.PhoneInfoService"></service>
+<activity android:label="Screen Lock Setting" android:name=".activity.ScreenSettingActivity"></activity>
+
+
 </application>
 
 
