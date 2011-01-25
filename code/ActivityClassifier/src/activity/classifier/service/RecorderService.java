@@ -30,21 +30,27 @@ import activity.classifier.R;
 import activity.classifier.R.raw;
 import activity.classifier.accel.AccelReader;
 import activity.classifier.accel.AccelReaderFactory;
+import activity.classifier.accel.SampleBatch;
+import activity.classifier.accel.SampleBatchBuffer;
 import activity.classifier.accel.Sampler;
+import activity.classifier.accel.SimpleSampler;
 import activity.classifier.activity.ActivityRecorderActivity;
 import activity.classifier.aggregator.Aggregator;
+import activity.classifier.common.Constants;
 import activity.classifier.model.ModelReader;
 import activity.classifier.repository.ActivityQueries;
 import activity.classifier.repository.OptionQueries;
 import activity.classifier.rpc.ActivityRecorderBinder;
 import activity.classifier.rpc.Classification;
 import activity.classifier.service.threads.AccountThread;
+import activity.classifier.service.threads.ClassifierThread;
 import activity.classifier.service.threads.UploadActivityHistoryThread;
 import activity.classifier.utils.PhoneInfo;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.Service;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -52,6 +58,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
@@ -75,15 +82,16 @@ import android.widget.Toast;
  * 
  * 
  */
-public class RecorderService extends Service {
+public class RecorderService extends Service implements Runnable {
 	
 	private AccelReader reader;
 	private Sampler sampler;
 	private final Aggregator aggregator = new Aggregator();
 	
-	private String chargingState = "";
+	private boolean charging = false;
 	
-	private final Handler handler = new Handler();
+	private Looper threadLooper = null;
+	private Handler handler = null;
 	
 	private int isWakeLockSet;
 	
@@ -112,6 +120,10 @@ public class RecorderService extends Service {
 	private String lastAc = "NONE";
 	
 	private PhoneInfo phoneInfo;
+	
+	private SampleBatchBuffer batchBuffer;
+	private ClassifierThread classifierThread;
+	private AccountThread registerAccountThread;
 	
 	/**
 	 * broadcastReceiver that receive phone's screen state
@@ -142,11 +154,11 @@ public class RecorderService extends Service {
 		public void onReceive(Context arg0, Intent arg1) {
 			int status = arg1.getIntExtra("plugged", -1);
 			if (status != 0) {
-				chargingState = "Charging";
-				Log.i("charging", "charging");
+				charging = true;
+				Log.i(Constants.DEBUG_TAG, "charging");
 			} else {
-				chargingState = "NotCharging";
-				Log.i("charging", "notcharging");
+				charging = false;
+				Log.i(Constants.DEBUG_TAG, "not charging");
 			}
 		}
 	};
@@ -198,6 +210,29 @@ public class RecorderService extends Service {
 	 */
 	private final ActivityRecorderBinder.Stub binder = new ActivityRecorderBinder.Stub() {
 		
+		private Handler mainLooperHandler = null;
+		
+		//	To use that main thread's looper, we get a reference to it, and create a handler.
+		//	Later any events that require the current thread to have a looper,
+		//	(e.g. toasts) can post as a <code>Runnable</code> and the <code>Runnable</code>
+		//	would be executed in the main thread.
+		private Handler getMainLooperHandler() {
+			
+			if (mainLooperHandler!=null) {
+				return mainLooperHandler;
+			}
+			else {
+				Looper mainLooper = RecorderService.this.getMainLooper();
+				
+				if (mainLooper==null)
+					return null;
+				
+				mainLooperHandler = new Handler(mainLooper);
+			}
+			
+			return mainLooperHandler;
+		}
+		
 		public void submitClassification(String classification) throws RemoteException {
 			Log.i(getClass().getName(), "Received classification: " + classification);
 			updateScores(classification);
@@ -214,129 +249,85 @@ public class RecorderService extends Service {
 		public void setWakeLock(boolean wakelock) throws RemoteException {
 			applyWakeLock(wakelock);
 		}
+		
+		public void showServiceToast(final String message) {
+			Handler mainLooperHandler = getMainLooperHandler();
+			
+			mainLooperHandler.post(new Runnable() {
+				@Override
+				public void run() {
+					Toast.makeText(RecorderService.this, message, Toast.LENGTH_LONG).show();
+				}
+			});
+		}
 	};
 	
 	private final Runnable registerRunnable = new Runnable() {
 		
 		public void run() {
-			// Log.i(getClass().getName(), "Registering");
-			sampler.start();
 			
-			handler.postDelayed(registerRunnable, 30000);
+			//	if the sampler is not sampling...
+			if (!sampler.isSampling()) {
+				//	take an empty batch and give it to the sampler to sample...
+				try {
+					//	to make the sample timing more accurate,
+					//		we invoke the gc before we start sampling,
+					//		in the hopes that it wont happen in the sampling
+					//		period.
+					System.gc();
+					
+//					Log.v(Constants.DEBUG_TAG, "Sending an empty batch for sampling.");
+					
+					//	please note that this function blocks until an empty batch is found
+					//	which is why it is important to start with a sufficient number of batches
+					//	and process the batches as fast as possible
+					SampleBatch batch = batchBuffer.takeEmptyBatch();
+					sampler.start(batch);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			//	run next batch after some time
+			handler.postDelayed(registerRunnable, Constants.DELAY_SAMPLE_BATCH);
 		}
 		
 	};
 	
+	//	called by the sampler when sampling a batch of samples is done.
 	private final Runnable analyseRunnable = new Runnable() {
 		
 		public void run() {
-			final Intent intent = new Intent(RecorderService.this, ClassifierService.class);
+//			Log.v(Constants.DEBUG_TAG, "Sampling done. Sending batch for analysis.");
+			
+			//	get the sample batch from the sampler
+			SampleBatch sample = sampler.getSampleBatch();
+			
 			if (ignore[0] <= 1) {
 				ignore[0]++;
 			}
-			intent.putExtra("data", sampler.getData());
-			intent.putExtra("status", chargingState);
-			intent.putExtra("size", sampler.getSize());
-			intent.putExtra("ignore", ignore);
-			intent.putExtra("LastClassificationName",
-							(!classifications.isEmpty()	? classifications.get(	classifications.size() - 1).getNiceClassification()
-														: null));
 			
-			startService(intent);
-
+			//	set any required properties
+			sample.setCharging(charging);
+			sample.setIgnore(ignore);
+			sample.setLastClassificationName(
+					(!classifications.isEmpty()) ?
+							classifications.get(classifications.size() - 1).getNiceClassification()
+							: null );
+			
+			//	put it back into the buffer as a filled batch
+			try {
+				batchBuffer.returnFilledBatch(sample);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			
 		}
 		
 	};
 	
-	/**
-     * 
-     */
-	@Override
-	public IBinder onBind(Intent arg0) {
-		return binder;
-	}
-	
-	/**
-     * 
-     */
-	@Override
-	public void onStart(final Intent intent, final int startId) {
-		super.onStart(intent, startId);
-		Log.i("RecorderService", "Strated!!");
-		
-		running = true;
-		
-		pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-		
-		// receive phone battery status
-		this.registerReceiver(	this.myBatteryReceiver,
-								new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-		this.registerReceiver(this.myScreenReceiver, new IntentFilter(Intent.ACTION_SCREEN_OFF));
-		this.registerReceiver(this.myScreenReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
-		
-		phoneInfo = new PhoneInfo(this);
-		activityQuery = new ActivityQueries(this);
-		optionQuery = new OptionQueries(this);
-		
-		optionQuery.setServiceRunningState("1");
-		
-		uploadActivityHistory = new UploadActivityHistoryThread(this, activityQuery, phoneInfo);
-		
-		isWakeLockSet = optionQuery.getWakeLockState();
-		
-		if (isWakeLockSet == 0) {
-			applyWakeLock(false);
-		} else {
-			applyWakeLock(true);
-		}
-		
-		/*
-		 * if the background service is dead somehow last time, there is no clue when the service is finished.
-		 * Check the last activity name whether it's finished properly or not by the activity name "END",
-		 * then if it was not "END", then insert "END" data into the database with the end time of the last activity. 
-		 */
-		int count = activityQuery.getSizeOfTable()+1;
-        Log.i("countActivityTable","#"+count);
-        if(count > 1){
-	    	String lastActivity = activityQuery.getItemNameFromActivityTable(count);
-	    	if(!lastActivity.equals("END")){
-	    		String endDate = activityQuery.getItemEndDateFromActivityTable(count);
-	    		
-	    		activityQuery.insertActivities("END", endDate, 0);
-	    	}
-        }
-        
-        
-		reader = new AccelReaderFactory().getReader(this);
-		sampler = new Sampler(handler, reader, analyseRunnable);
-		
-		init();
-		
-		// if the account wasn't previously sent,
-		// start a thread to register the account.
-		if (optionQuery.getAccountState() == 0) {
-			AccountThread registerAccount = new AccountThread(this, phoneInfo,
-																				optionQuery);
-			registerAccount.start();
-		}
-		
-		// start to upload un-posted activities to Web server
-		uploadActivityHistory.startUploads();
-	}
-	
-	public void init() {
-		
-		model = ModelReader.getModel(this, R.raw.basic_model);
-		
-		handler.postDelayed(registerRunnable, 1000);
-		
-		// classifications.add(new Classification("CLASSIFIED/WAITING",
-		// System.currentTimeMillis()));
-		// classifications.add(new Classification("",
-		// System.currentTimeMillis()));
-		
-	}
-	
+
+
 	/**
 	 * 
 	 * @throws ParseException
@@ -351,8 +342,6 @@ public class RecorderService extends Service {
     			int count = activityQuery.getSizeOfTable()+1;
     			activityQuery.updateNewItems(count, startDate);
     			activityQuery.insertActivities(activity, startDate, 0);
-    			
-    			
     		}else{
     			int count = activityQuery.getSizeOfTable()+1;
     			activityQuery.updateNewItems(count, classifications.get(classifications.size()-1).getEndTime());
@@ -387,42 +376,193 @@ public class RecorderService extends Service {
 		}
 	}
 	
+	/**
+     * 
+     */
+	@Override
+	public IBinder onBind(Intent arg0) {
+		return binder;
+	}
+	
+	@Override
+	public void onCreate() {
+		super.onCreate();
+
+		Log.v(Constants.DEBUG_TAG, "RecorderService.onCreate()");
+	}
+	
+	/**
+     * 
+     */
+	@Override
+	public void onStart(final Intent intent, final int startId) {
+		super.onStart(intent, startId);
+		
+		Log.v(Constants.DEBUG_TAG, "RecorderService.onStart()");
+		
+		//	all the initialization code that was here,
+		//		has been moved to the run() function		
+		(new Thread(this)).start();
+		running = true;
+	}
+
+	
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
 		
 		if (running) {
-			Log.i("Ondestroy", "HERE");
-			Date date = new Date(System.currentTimeMillis());
-			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z z");
-			String startTime = dateFormat.format(date);
-			// save message "END" to recognise when the background service is
-			// finished.
-			activityQuery.insertActivities("END", startTime, 0);
-			
-			ActivityRecorderActivity.serviceIsRunning = false;
-			
 			running = false;
-			if (sampler != null) {
-				sampler.stop();
-			}
-			ignore[0] = 0;
-			optionQuery.setServiceRunningState("0");
-			handler.removeCallbacks(registerRunnable);
-			this.unregisterReceiver(myBatteryReceiver);
-			this.unregisterReceiver(myScreenReceiver);
-			uploadActivityHistory.cancelUploads();
 			
-			if (PARTIAL_WAKE_LOCK_MANAGER != null) {
-				PARTIAL_WAKE_LOCK_MANAGER.release();
-				PARTIAL_WAKE_LOCK_MANAGER = null;
-			}
-			if (SCREEN_DIM_WAKE_LOCK_MANAGER != null) {
-				SCREEN_DIM_WAKE_LOCK_MANAGER.release();
-				SCREEN_DIM_WAKE_LOCK_MANAGER = null;
-			}
+			//	destroy any required features of the service
+			destroyService();
+			
+			//	signal the looper to exit
+			if (threadLooper!=null)
+				threadLooper.quit();
 			
 		}
+	}
+
+	@Override
+	public void run() {		
+		Log.v(Constants.DEBUG_TAG, "Recorder Service Started!!");
+		
+		//	create a looper for this thread
+		Looper.prepare();
+		
+		//	obtain a reference to the looper, and create a handler for the looper
+		this.threadLooper = Looper.myLooper();
+		this.handler = new Handler(threadLooper);
+		
+		//	initialise any required features of the service
+		initService();
+		
+		//	loop, processing any messages queued
+		//		please note that this function blocks until the looper's quit function is called
+		//		for this case, the quit function is called when the service is being destroyed
+		//		in the onDestroy method.
+		Looper.loop();
+		
+		Log.v(Constants.DEBUG_TAG, "Recorder Service Exitting!!");		
+	}
+	
+	/**
+	 * This code is run in the service's separate thread.
+	 * The code is used to initialise all the features of the
+	 * 	service when the service starts running. 
+	 */
+	private void initService()
+	{
+		pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+		
+		// receive phone battery status
+		this.registerReceiver(	this.myBatteryReceiver,
+								new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+		this.registerReceiver(this.myScreenReceiver, new IntentFilter(Intent.ACTION_SCREEN_OFF));
+		this.registerReceiver(this.myScreenReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
+		
+		model = ModelReader.getModel(this, R.raw.basic_model);
+		phoneInfo = new PhoneInfo(this);
+		activityQuery = new ActivityQueries(this);
+		optionQuery = new OptionQueries(this);
+		batchBuffer = new SampleBatchBuffer();
+		
+		optionQuery.setServiceRunningState("1");
+		
+		isWakeLockSet = optionQuery.getWakeLockState();
+		
+		if (isWakeLockSet == 0) {
+			applyWakeLock(false);
+		} else {
+			applyWakeLock(true);
+		}
+		
+		/*
+		 * if the background service is dead somehow last time, there is no clue when the service is finished.
+		 * Check the last activity name whether it's finished properly or not by the activity name "END",
+		 * then if it was not "END", then insert "END" data into the database with the end time of the last activity. 
+		 */
+		int count = activityQuery.getSizeOfTable()+1;
+        Log.i("countActivityTable","#"+count);
+        if(count > 1){
+	    	String lastActivity = activityQuery.getItemNameFromActivityTable(count);
+	    	if(!lastActivity.equals("END")){
+	    		String endDate = activityQuery.getItemEndDateFromActivityTable(count);
+	    		
+	    		activityQuery.insertActivities("END", endDate, 0);
+	    	}
+        }
+        
+		reader = new AccelReaderFactory().getReader(this);
+		sampler = new SimpleSampler(handler, reader, analyseRunnable);
+		
+		classifierThread = new ClassifierThread(this, binder, batchBuffer);
+		classifierThread.start();
+		
+		// if the account wasn't previously sent,
+		// start a thread to register the account.
+		if (optionQuery.getAccountState() == 0) {
+			registerAccountThread = new AccountThread(this, binder, phoneInfo, optionQuery);
+			registerAccountThread.start();
+		} else {
+			registerAccountThread = null;
+		}
+		
+		// start to upload un-posted activities to Web server
+		uploadActivityHistory = new UploadActivityHistoryThread(this, activityQuery, phoneInfo);		
+		uploadActivityHistory.startUploads();
+		
+		handler.postDelayed(registerRunnable, 1000);
+		
+		// classifications.add(new Classification("CLASSIFIED/WAITING",
+		// System.currentTimeMillis()));
+		// classifications.add(new Classification("",
+		// System.currentTimeMillis()));		
+	}
+	
+	/**
+	 * The code is used to destroy all the features of the
+	 * 	service when the service is being destroyed. 
+	 */
+	private void destroyService()
+	{
+		//	stop sampling
+		handler.removeCallbacks(registerRunnable);
+		if (sampler != null) {
+			sampler.stop();
+		}
+		
+		//	stop threads
+		uploadActivityHistory.cancelUploads();
+		classifierThread.exit();
+		if (registerAccountThread!=null) {
+			registerAccountThread.exit();
+		}
+		
+		Date date = new Date(System.currentTimeMillis());
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z z");
+		String startTime = dateFormat.format(date);
+		// save message "END" to recognise when the background service is
+		// finished.
+		activityQuery.insertActivities("END", startTime, 0);
+		ignore[0] = 0;
+		optionQuery.setServiceRunningState("0");
+		
+		ActivityRecorderActivity.serviceIsRunning = false;
+		
+		this.unregisterReceiver(myBatteryReceiver);
+		this.unregisterReceiver(myScreenReceiver);
+		
+		if (PARTIAL_WAKE_LOCK_MANAGER != null) {
+			PARTIAL_WAKE_LOCK_MANAGER.release();
+			PARTIAL_WAKE_LOCK_MANAGER = null;
+		}
+		if (SCREEN_DIM_WAKE_LOCK_MANAGER != null) {
+			SCREEN_DIM_WAKE_LOCK_MANAGER.release();
+			SCREEN_DIM_WAKE_LOCK_MANAGER = null;
+		}
+		
 	}
 	
 }

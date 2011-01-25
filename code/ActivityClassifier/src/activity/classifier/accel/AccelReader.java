@@ -33,6 +33,6 @@ public interface AccelReader {
 
     void stopSampling();
 
-    float[] getSample();
+    public void assignSample(float[] values);
 
 }

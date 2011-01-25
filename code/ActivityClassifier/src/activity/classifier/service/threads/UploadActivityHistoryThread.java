@@ -33,7 +33,7 @@ import android.util.Log;
  *
  *	<p>
  *	Changes made by Umran: <br>
- *	Class used to be callsed <code>UploadActivityHistory</code>
+ *	Class used to be called <code>UploadActivityHistory</code>
  *	Changed class from using a Timer, to being a thread on its own. As a thread,
  *	the delays involved in uploading content to the internet will be sheltered
  *	from the rest of the application. The thread rests for a period given
@@ -66,6 +66,7 @@ public class UploadActivityHistoryThread extends Thread {
 	 * cancel timer when the background service is destroyed.
 	 */
 	public synchronized void cancelUploads(){
+		//	signal the thread to exit
 		this.shouldExit = true;
 		
 		//	not sure what problems may happen if interrupted while uploading

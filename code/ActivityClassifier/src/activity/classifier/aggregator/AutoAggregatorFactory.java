@@ -36,6 +36,7 @@ import activity.classifier.common.BaseFactory;
  * 
  * @author chris
  */
+@Deprecated
 public class AutoAggregatorFactory extends BaseFactory {
 
     public AutoAggregator getAutoAggregator(final Context context, final Handler handler,

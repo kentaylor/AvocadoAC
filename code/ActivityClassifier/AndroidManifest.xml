@@ -15,7 +15,7 @@
 		     </intent-filter> 
 		 </receiver> 
         <service android:label="Sensor Recorder Service" android:name=".service.RecorderService"/>
-        <service android:label="Activity Classification Service" android:name=".service.ClassifierService"/>
+        
     
 
 

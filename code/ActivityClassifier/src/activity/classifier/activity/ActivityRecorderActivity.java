@@ -412,7 +412,6 @@ public class ActivityRecorderActivity extends Activity {
 					Intent intent = new Intent(	ActivityRecorderActivity.this,
                                               	RecorderService.class	);
 					ActivityRecorderActivity.this.startService(intent);
-					Log.i(Constants.DEBUG_TAG, "RecorderService Started");
 					
 					nextStep = CLOSE_START_DIALOG;					
 					handler.postDelayed(this, Constants.DELAY_SERVICE_START);

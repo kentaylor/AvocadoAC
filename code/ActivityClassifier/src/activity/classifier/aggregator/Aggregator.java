@@ -48,7 +48,7 @@ public class Aggregator {
 		put("", new HashMap<String, Double>() {{
 			put("null", 0.5d);
 			put("CLASSIFIED", 0.5d);
-  put("UNCLASSIFIED", 0.333d);
+			put("UNCLASSIFIED", 0.333d);
 		}});
 
 		put("CLASSIFIED", new HashMap<String, Double>() {{

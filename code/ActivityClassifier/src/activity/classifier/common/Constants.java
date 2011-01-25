@@ -35,6 +35,17 @@ public class Constants {
 	public static final int DELAY_SERVICE_START = 500;
 
 	/**
+	 * The delay between two consecutive sampling batches.
+	 */
+	public static final int DELAY_SAMPLE_BATCH = 60*1000; //	1min in ms
+//	public static final int DELAY_SAMPLE_BATCH = 10*1000; //	debugging use
+	
+	/**
+	 * The delay between two consecutive samples in a sample batch.
+	 */
+	public static final int DELAY_BETWEEN_SAMPLES = 50; //	50ms
+	
+	/**
 	 * A tag that can be used to identify this application's log entries.
 	 */
 	public static final String DEBUG_TAG = "ActivityClassifier";

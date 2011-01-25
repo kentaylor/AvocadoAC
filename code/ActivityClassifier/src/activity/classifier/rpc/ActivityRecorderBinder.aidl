@@ -21,6 +21,10 @@ interface ActivityRecorderBinder {
     
     void setWakeLock(boolean wakelock);
     
+    /**
+    *	Used by service thread's with no looper.
+    */
+    void showServiceToast(String message);
     
 
 }

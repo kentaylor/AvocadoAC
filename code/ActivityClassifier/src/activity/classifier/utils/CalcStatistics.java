@@ -3,84 +3,118 @@ package activity.classifier.utils;
 import android.util.Log;
 
 /**
- * An object of class CalcStatistics can be used to compute several simple statistics
- * for a set of numbers.  Numbers are passed in a 3D array of X,Y,Z.  Methods are provided to return the following
- * statistics for the set of numbers that have been entered: The number
- * of items, the sum of the items, the average, the standard deviation,
- * the maximum, the minimum and VerticalAccel. The vertical acceleration 
- * would normally equal gravity. If higher than gravity then device was
- * accelerated during the sampling interval most likely in a car. 
- * If it is less than gravity then device was rotated during sampling.
+ * An object of class CalcStatistics can be used to compute several simple
+ * statistics for a set of numbers. Numbers are passed in a 3D array of X,Y,Z.
+ * Methods are provided to return the following statistics for the set of
+ * numbers that have been entered: The number of items, the sum of the items,
+ * the average, the standard deviation, the maximum, the minimum and
+ * VerticalAccel. The vertical acceleration would normally equal gravity. If
+ * higher than gravity then device was accelerated during the sampling interval
+ * most likely in a car. If it is less than gravity then device was rotated
+ * during sampling.
+ * 
+ *	<p>
+ *	Changes made by Umran: <br>
+ *	Class can now work on any given vector size.
+ *	And to be re-usable with another set of samples. Call {@link #assign(float[][], int)} to initiate another set of samples.
+ *
+ * <p>
+ * 
  * 
  * @author Ken Taylor
  */
 public class CalcStatistics {
+	
+	/**
+	 * Number of dimensions we're computing
+	 */
+	private final int dimensions;
+	
+	
 	/**
 	 * Number of numbers in the array.
 	 */
-	private final int count;   
-	
+	private int count;
+
 	/**
 	 * The sum of all the items in the array.
 	 */
-	private float sum[] ={0,0,0};  
-	
+	private float sum[];
+
 	/**
 	 * The sum of the squares of all the items.
 	 */
-	private float sum_sqr[]={0,0,0};  
-	
+	private float sumSqr[];
+
 	/**
 	 * Largest item seen.
 	 */
-	private float max[] = {Float.NEGATIVE_INFINITY,Float.NEGATIVE_INFINITY,Float.NEGATIVE_INFINITY};  
-	
+	private float max[];
+
 	/**
 	 * Smallest item seen.
 	 */
-	private float min[] = {Float.POSITIVE_INFINITY,Float.POSITIVE_INFINITY,Float.POSITIVE_INFINITY};
-	
+	private float min[];
+
 	/**
 	 * The mean of the array data.
 	 */
-	private float mean[]= new float[3]; 
-	
+	private float mean[];
+
+	public CalcStatistics(int dimensions) {
+		this.dimensions = dimensions;
+
+		this.sum = new float[dimensions]; 
+		this.sumSqr = new float[dimensions];
+		this.max = new float[dimensions];
+		this.min = new float[dimensions];
+		this.mean = new float[dimensions];
+	}
 	
 	/**
-	 * ArrayIn is a 3D array i.e. X,Y,Z  of a number of samples
-	 * Summarise array passed in	
+	 * Initiates computation of statistical attributes from 
+	 * the array of vectors given.
 	 * 
-	 * @param ArrayIn array passed in
-	 * @param samples sample size of one dimension
+	 * @param arrayIn
+	 *            an array of vectors
+	 * @param samples
+	 *            number of vectors used from the array
 	 */
-	public CalcStatistics(float[] ArrayIn, int samples) {
-		count = samples;
+	public void assign(float[][] arrayIn, int samples) {
 		
-		//step through array in groups of 3
-		for(int i=0;i<samples*3;i=i+3){
-			
-			for(int j=0;j<3;j++){
-				float val = ArrayIn[(i + j)]; 
-				sum[j]+=val;
-				sum_sqr[j]+=val*val;
+		this.count = samples;
+		
+		for (int i=0; i<dimensions; ++i) {
+			this.max[i] = Float.NEGATIVE_INFINITY;
+			this.min[i] = Float.POSITIVE_INFINITY;
+		}		
+		
+		float val;
+		// step through the array
+		for (int s = 0; s < samples; ++s) {
+
+			for (int j = 0; j < dimensions; j++) {
+				val = arrayIn[s][j];
+				sum[j] += val;
+				sumSqr[j] += val * val;
 				if (val > max[j])
 					max[j] = val;
 				if (val < min[j])
-				      min[j] = val;
+					min[j] = val;
 			}
 		}
-		for(int j=0;j<3;j++){
-			mean[j]= sum[j]/(samples);
-			}
 		
+		for (int j = 0; j < dimensions; j++) {
+			mean[j] = sum[j] / (samples);
+		}
 	}
-	
+
 	/**
 	 * 
 	 * @return number of items in array as passed in.
 	 */
-	public int getCount() {   
-	   return count;
+	public int getCount() {
+		return count;
 	}
 
 	/**
@@ -88,62 +122,64 @@ public class CalcStatistics {
 	 * @return the sum of all the items that have been entered.
 	 */
 	public float[] getSum() {
-	   return sum;
+		return sum;
 	}
 
 	/**
 	 * 
-	 * @return average of all the items that have been entered.
-	 Value is Float.NaN if count == 0.
+	 * @return average of all the items that have been entered. Value is
+	 *         Float.NaN if count == 0.
 	 */
 	public float[] getMean() {
-	   return mean;  
+		return mean;
 	}
-	
+
 	/**
 	 * 
 	 * @return
 	 */
 	public float getVerticalAccel() {
-		float VerticalAccel=0;
-		for(int j=0;j<3;j++){
-    	Log.i("sd","count"+count+" sum_sqr "+sum_sqr[j]+" mean "+mean[j]+" ");
-		VerticalAccel+=  mean[j]*mean[j];
+		float verticalAccel = 0;
+		for (int j = 0; j < dimensions; j++) {
+			Log.i("sd", "count" + count + " sum_sqr " + sumSqr[j] + " mean "
+					+ mean[j] + " ");
+			verticalAccel += mean[j] * mean[j];
 		}
-		VerticalAccel=(float) Math.sqrt( VerticalAccel);
-	   return VerticalAccel;  
+		verticalAccel = (float) Math.sqrt(verticalAccel);
+		return verticalAccel;
 	}
 
 	/**
 	 * 
-	 * @return standard deviation of all the items that have been entered. 
-	 Value will be Double.NaN if count == 0.
+	 * @return standard deviation of all the items that have been entered. Value
+	 *         will be Double.NaN if count == 0.
 	 */
-	public float[] getStandardDeviation() {  
-		float StandardDeviation[] = new float[3];
-		for(int j=0;j<3;j++){
-        	Log.i("sd","count"+count+" sum_sqr "+sum_sqr[j]+" mean "+mean[j]+" ");
-			StandardDeviation[j]= (float) Math.sqrt( sum_sqr[j]/count - mean[j]*mean[j]);
-			}
-	   return StandardDeviation;
+	public float[] getStandardDeviation() {
+		float standardDeviation[] = new float[dimensions];
+		for (int j = 0; j < dimensions; j++) {
+			Log.i("sd", "count" + count + " sum_sqr " + sumSqr[j] + " mean "
+					+ mean[j] + " ");
+			standardDeviation[j] = (float) Math.sqrt(sumSqr[j] / count
+					- mean[j] * mean[j]);
+		}
+		return standardDeviation;
 	}
 
 	/**
 	 * 
-	 * @return the smallest item that has been entered.
-	 Value will be - infinity if no items in array.
+	 * @return the smallest item that has been entered. Value will be - infinity
+	 *         if no items in array.
 	 */
 	public float[] getMin() {
-	   return min;
+		return min;
 	}
 
 	/**
 	 * 
-	 * @return the largest item that has been entered.
-	 Value will be -infinity if no items have been entered.
+	 * @return the largest item that has been entered. Value will be -infinity
+	 *         if no items have been entered.
 	 */
 	public float[] getMax() {
-	   return max;
+		return max;
 	}
-}  
-
+}

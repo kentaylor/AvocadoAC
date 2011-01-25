@@ -3,18 +3,23 @@
  * and open the template in the editor.
  */
 
-package activity.classifier.service;
+package activity.classifier.service.threads;
 
 import activity.classifier.Calibration;
 import activity.classifier.R;
+import activity.classifier.accel.SampleBatch;
+import activity.classifier.accel.SampleBatchBuffer;
 import activity.classifier.common.Classifier;
+import activity.classifier.common.Constants;
 import activity.classifier.repository.OptionQueries;
 import activity.classifier.repository.TestAVQueries;
 import activity.classifier.rpc.ActivityRecorderBinder;
+import activity.classifier.service.RecorderService;
 import activity.classifier.utils.CalcStatistics;
 import activity.classifier.utils.RotateSamplesToVerticalHorizontal;
 import android.app.Service;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
@@ -38,25 +43,28 @@ import android.widget.Toast;
  * Local database is used to store some meaningful information such as sd, average, 
  * lastaverage (the average of acceleration values when the activity is Uncarried, if the activity is not a Uncarried, then the values is 0.0).
  *
+ *	<p>
+ *	Changes made by Umran: <br>
+ *	The class used to be called ClassifierService. Now changed to a thread.
+ *	Communication between {@link RecorderService} and this class is done through
+ *	the {@link SampleBatch} and {@link SampleBatchBuffer}.
+ *	<p>
+ *	Filled batches are posted into the buffer in {@link RecorderService}
+ *	and removed here, after analysis, the batches are posted back into the
+ *	buffer as empty batches where the recorder class removes them and fills them
+ *	with sampled data. 
+ *
  * @author chris, modified by Justin Lee
  * 
  * 
  */
-public class ClassifierService extends Service  implements Runnable {
+public class ClassifierThread extends Thread {
 
-	ActivityRecorderBinder service = null;
+	private ActivityRecorderBinder service;
+	private SampleBatchBuffer batchBuffer;
     
 	private String classification;
 
-	/**
-	 *  useful informations from RecorderService.
-	 */
-    private String chargingState="";
-    private float[] data; //sampled data
-    private int size; //sampled data size
-    private float[] ignore={0}; //practical purpose, first classification ignored but would not be used later
-    private String lastClassificationName;
-    
     /**
      * variables when classify Uncarried state
      */
@@ -73,67 +81,75 @@ public class ClassifierService extends Service  implements Runnable {
     private OptionQueries optionQuery;
     private TestAVQueries testavQuery;
     
+    private CalcStatistics calcSampleStatistics = new CalcStatistics(3);
     private RotateSamplesToVerticalHorizontal rotateSamples = new RotateSamplesToVerticalHorizontal();
+    private Classifier classifier;
     
-    /**
-     * when the connection is binded, it submit the result of the classification
-     */
-    private ServiceConnection connection = new ServiceConnection() {
+    private boolean shouldExit;
 
-        public void onServiceConnected(ComponentName arg0, IBinder arg1) {
-            service = ActivityRecorderBinder.Stub.asInterface(arg1);
-
-            try {
-                service.submitClassification(classification);
-                
-            } catch (RemoteException ex) {
-            	Log.e("connection", "Exception error occured in connection in ClassifierService class");
-            }
-            
-            stopSelf();
-        }
-
-        public void onServiceDisconnected(ComponentName arg0) {
-            Toast.makeText(ClassifierService.this, R.string.error_disconnected, Toast.LENGTH_LONG);
-        }
-    };
-    
-
-    /**
-     * when this ClassifierService started, data(acceleration), chargingState(battery status),
-     * ssd(sensor standard deviation), ignore(practical purpose, first classification ignored but would not be used later)
-     */
-    @Override
-    public void onStart(Intent intent, int startId) {
-        super.onStart(intent, startId);
-        
-        chargingState=intent.getStringExtra("status");
-        data = intent.getFloatArrayExtra("data");
-        size = intent.getIntExtra("size", 128);
-        ignore=intent.getFloatArrayExtra("ignore");
-        lastClassificationName = intent.getStringExtra("LastClassificationName");
-        
+    public ClassifierThread(Context context, ActivityRecorderBinder service, SampleBatchBuffer sampleBatchBuffer) {
+    	this.service = service;
+    	this.batchBuffer = sampleBatchBuffer;
+    	
         uncarried =  false;
-        testavQuery = new TestAVQueries(this);
-        new Thread(this).start();
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        unbindService(connection);
-    }
-
-    @Override
-    public IBinder onBind(Intent arg0) {
-        return null;
-    }
+        testavQuery = new TestAVQueries(context);
+        
+        this.classifier = new Classifier(RecorderService.model.entrySet());
+        this.optionQuery = new OptionQueries(context);
+        
+        this.shouldExit = false;
+	}
     
+    /**
+     * Stops the thread cautiously
+     */
+    public synchronized void exit() {
+    	//	signal the thread to exit
+    	this.shouldExit = false;
+    	
+		//	if the thread is blocked waiting for a filled batch
+		//		interrupt the thread
+		this.interrupt();
+    }
     
     /**
      * Classification start
      */
     public void run() {
+    	
+    	Log.v(Constants.DEBUG_TAG, "Classification thread started.");
+    	while (!this.shouldExit) {
+	        try {
+	        	//	incase of too sampling too fast, or too slow CPU, or the classification taking too long
+	        	//		check how many batches are pending
+	        	int pendingBatches = batchBuffer.getPendingFilledBatches();
+	        	if (pendingBatches==SampleBatchBuffer.TOTAL_BATCH_COUNT) {
+	        		//	issue an error if too many
+	        		service.showServiceToast("Unable to classify sensor data fast enough!");
+	        	}
+	        	
+	        	// this function blocks until a filled sample batch is obtained
+	        	SampleBatch batch = batchBuffer.takeFilledBatch();
+//	        	Log.v(Constants.DEBUG_TAG, "Received filled batch for analysis.");
+	        	
+	        	//	process the sample batch to obtain the classification
+	        	processData(batch);
+
+//	        	Log.v(Constants.DEBUG_TAG, "Analysis done. Returning batch.");
+	        	//	return the sample batch to the buffer as an empty batch
+	        	batchBuffer.returnEmptyBatch(batch);
+	        	//	submit the classification
+	        	service.submitClassification(classification);
+	        } catch (RemoteException ex) {
+	        	Log.e(Constants.DEBUG_TAG, "Exception error occured in connection in ClassifierService class");
+	        } catch (InterruptedException e) {
+			}
+    	}
+    	Log.v(Constants.DEBUG_TAG, "Classification thread exiting.");
+
+    }
+
+    private void processData(SampleBatch batch) {
     	//---------------------Classification for Charging-------------------------//
     	/*
     	 *  Commented for practical reason, DO NOT delete this part. 
@@ -144,13 +160,19 @@ public class ClassifierService extends Service  implements Runnable {
 //        }
 //      else{
     	//---------------------Classification for the rest of activities-------------------------//
+
+    	float[][] data = batch.data;
+    	int size = batch.getSize();
+		String lastClassificationName = batch.getLastClassificationName();
+		float[] ignore = batch.getIgnore();
+		int isCalibrated;		
 		
     	//	first rotate samples to world-orientation
     	
-    	rotateSamples.rotateToWorldCoordinates(data);
+		//	the model data isn't rotated yet...
+		//	TODO: Uncomment this after model data is rotated.
+    	//rotateSamples.rotateToWorldCoordinates(data);
     	
-		int isCalibrated;
-		optionQuery = new OptionQueries(this);
 		isCalibrated = optionQuery.getCalibrationState();
 		// read sensor standard deviation from the database
 		ssd[0] = optionQuery.getStandardDeviationX();
@@ -161,11 +183,10 @@ public class ClassifierService extends Service  implements Runnable {
 		float[] sd = new float[3];
 		float[] average = { 0, 0, 0 };
 		
-		CalcStatistics calc; // Computes stats for numbers entered by user.
-		calc = new CalcStatistics(data, size);
+		calcSampleStatistics.assign(data, size);
 		
-		average = calc.getMean();
-		sd = calc.getStandardDeviation();
+		average = calcSampleStatistics.getMean();
+		sd = calcSampleStatistics.getStandardDeviation();
 		
 		// Performs calibration when the calibration state is 0 (false)
 		if (isCalibrated == 0) {
@@ -269,8 +290,7 @@ public class ClassifierService extends Service  implements Runnable {
 					lastaverage[1] = 0;
 					lastaverage[2] = 0;
 				}
-				classification = new Classifier(RecorderService.model.entrySet()).classify(	data,
-																							size);
+				classification = classifier.classify(data,size);
 				keepLastAvgAccel = false;
 			} else {
 				classification = "CLASSIFIED/WAITING";
@@ -279,9 +299,8 @@ public class ClassifierService extends Service  implements Runnable {
 		// }
 		
 		// Log.i(getClass().getName(), "Classification: " + classification);
-		
-		bindService(new Intent(this, RecorderService.class), connection, BIND_AUTO_CREATE);
     }
+    
 }
 
 

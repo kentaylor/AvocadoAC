@@ -52,6 +52,7 @@ public class Classifier {
      */
     public Classifier(final Set<Entry<Float[], String>> model) {
         this.model = model;
+        this.calc = new CalcStatistics(3);
     }
 
     /**
@@ -60,9 +61,9 @@ public class Classifier {
      * @param size sampled data size 
      * @return best classification name
      */
-    public String classify(final float[] data, int size) {
+    public synchronized String classify(final float[][] data, int size) {
     	//new CalcStatistics instance
-        calc = new CalcStatistics(data,size);
+        calc.assign(data,size);
         float[] max= new float[3];
         float[] min= new float[3];
         float[] mean= new float[3];

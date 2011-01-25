@@ -63,7 +63,7 @@ public class RotateSamplesToVerticalHorizontal {
 	 * Returns false if the function is unable to compute the rotation
 	 * matrix and hence unable to change the samples to world coordinates.
 	 */
-	public synchronized boolean rotateToWorldCoordinates(float[] samples)
+	public synchronized boolean rotateToWorldCoordinates(float[][] samples)
 	{
 		computeMeanVector(samples, gravityVec);
 		
@@ -105,7 +105,7 @@ public class RotateSamplesToVerticalHorizontal {
 	 * matrix and hence unable to change the samples to world coordinates.
 	 * 
 	 */
-	public synchronized boolean rotateToWorldCoordinates(float[] samples, float[] geoMagSamples)
+	public synchronized boolean rotateToWorldCoordinates(float[][] samples, float[][] geoMagSamples)
 	{
 		computeMeanVector(samples, gravityVec);
 		
@@ -114,7 +114,7 @@ public class RotateSamplesToVerticalHorizontal {
 		return internRotateToWorldCoordinates(samples, gravityVec, horizontalVec);
 	}
 	
-	private boolean internRotateToWorldCoordinates(float[] samples, float[] gravityVec, float[] horVec)
+	private boolean internRotateToWorldCoordinates(float[][] samples, float[] gravityVec, float[] horVec)
 	{
 //		Log.v("TEST", "Hor Vec="+vec2str(horizontalVec)+" = "+calcMag(horizontalVec));
 		
@@ -143,6 +143,7 @@ public class RotateSamplesToVerticalHorizontal {
 		return true;
 	}
 	
+	@SuppressWarnings("unused")
 	private static float calcMag(float[] vec) {
 		double mag = 0.0f;
 		for (int i=0; i<DIM; ++i)
@@ -164,19 +165,19 @@ public class RotateSamplesToVerticalHorizontal {
 	 * [ 6 ][ 7 ][ 8 ]
 	 *
 	 */
-	private void applyRotation(float[] samples)
+	private void applyRotation(float[][] samples)
 	{
-		for (int s=0; s<samples.length; s+=DIM) {
+		for (int s=0; s<samples.length; ++s) {
 			for (int d=0; d<DIM; ++d) {
 				tempVec[d] = 0.0f;
 				
 				for (int k=0; k<DIM; ++k) {
-					tempVec[d] += rotationMat[(d*3)+k] * samples[s+k];
+					tempVec[d] += rotationMat[(d*3)+k] * samples[s][k];
 				}
 			}
 			
 			for (int d=0; d<DIM; ++d) {
-				samples[s+d] = tempVec[d];
+				samples[s][d] = tempVec[d];
 			}
 		}
 	}
@@ -191,16 +192,16 @@ public class RotateSamplesToVerticalHorizontal {
 	 * @param outVec
 	 * an array of 3 floats to save the final mean vector in
 	 */
-	private static void computeMeanVector(float[] samples, float[] outVec)
+	private static void computeMeanVector(float[][] samples, float[] outVec)
 	{
 		for (int d=0; d<DIM; ++d)
 			outVec[d] = 0.0f;
 		
 		//	find the total and number of samples (each having x, y, and z)
 		int count = 0;
-		for (int s=0; s<samples.length; s+=DIM) {
+		for (int s=0; s<samples.length; ++s) {
 			for (int d=0; d<DIM; ++d)
-				outVec[d] += samples[s+d];
+				outVec[d] += samples[s][d];
 			++count;
 		}
 		
@@ -271,6 +272,7 @@ public class RotateSamplesToVerticalHorizontal {
 		return String.format("{x=% 3.2f, y=% 3.2f, z=% 3.2f}", vec[X_AXIS], vec[Y_AXIS], vec[Z_AXIS]);
 	}
 
+	@SuppressWarnings("unused")
 	private static String vec2str(float[] vec, int start) {
 		return String.format("{x=% 3.2f, y=% 3.2f, z=% 3.2f}", vec[start+X_AXIS], vec[start+Y_AXIS], vec[start+Z_AXIS]);
 	}
