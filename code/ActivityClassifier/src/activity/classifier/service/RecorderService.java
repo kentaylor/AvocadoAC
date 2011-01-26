@@ -332,7 +332,7 @@ public class RecorderService extends Service implements Runnable {
 	 * 
 	 * @throws ParseException
 	 */
-	void InsertNewActivity() throws ParseException {
+	private void insertNewActivity() throws ParseException {
     	try {
     		String activity = classifications.get(classifications.size()-1).withContext(this).getNiceClassification();
     		String startDate  = classifications.get(classifications.size()-1).getStartTime();
@@ -354,7 +354,7 @@ public class RecorderService extends Service implements Runnable {
 		
 	}
 	
-	void updateScores(final String classification) {
+	private void updateScores(final String classification) {
 		aggregator.addClassification(classification);
 		if (!aggregator.getClassification().equals("CLASSIFIED/WAITING")) {
 			final String best = aggregator.getClassification();
@@ -369,7 +369,7 @@ public class RecorderService extends Service implements Runnable {
 			// }
 		}
 		try {
-			InsertNewActivity();
+			insertNewActivity();
 		} catch (ParseException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
