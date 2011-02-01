@@ -22,10 +22,13 @@
 
 package activity.classifier.common;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 
 import activity.classifier.utils.CalcStatistics;
 import activity.classifier.utils.FeatureExtractor;
@@ -39,7 +42,7 @@ import android.util.Log;
  * 
  * @author chris
  */
-public class Classifier {
+public class NormalizedClassifier {
 
     private final Set<Map.Entry<Float[], String>> model;
     
@@ -48,15 +51,68 @@ public class Classifier {
      */
     private FeatureExtractor featureExtractor;
     
+    private Map<String, float[][]> meanStats;
+    
     /**
      * Set the clustered data set for classification.
      * @param model clustered data set
      */
-    public Classifier(final Set<Entry<Float[], String>> model) {
+    public NormalizedClassifier(final Set<Entry<Float[], String>> model) {
         this.model = model;
         this.featureExtractor = new FeatureExtractor(Constants.NUM_OF_SAMPLES_PER_BATCH);
+        
+        this.meanStats = new TreeMap<String,float[][]>(new StringComparator(false));
+        
+        computeMeanStats();
     }
 
+    private void computeMeanStats() {
+        meanStats.clear();
+
+        Map<String,List<float[]>> groups = new TreeMap<String,List<float[]>>(new StringComparator(false));
+
+        for (Map.Entry<Float[], String> cl:model) {
+        	String activity = cl.getValue();
+        	Float[] stats = cl.getKey();
+        	
+            if (!groups.containsKey(activity))
+                groups.put(activity, new ArrayList<float[]>());
+            
+            float[] statsArray = new float[stats.length];
+            for (int i=0; i<stats.length; ++i)
+            	statsArray[i] = stats[i];
+
+            groups.get(activity).add(statsArray);
+        }
+
+        CalcStatistics cal = new CalcStatistics(FeatureExtractor.NUM_FEATURES);
+
+        for (String activity:groups.keySet()) {
+            List<float[]> data = groups.get(activity);
+
+            float[][] array = new float[data.size()][];
+
+            array = data.toArray(array);
+
+            cal.assign(array, array.length);
+            
+            float[] mean = cal.getMean();
+            float[] stddev = cal.getStandardDeviation();
+
+            float[][] stats = new float[2][FeatureExtractor.NUM_FEATURES];
+            
+            for (int i=0; i<FeatureExtractor.NUM_FEATURES; ++i) {
+            	stats[0][i] = mean[i];
+            	stats[1][i] = stddev[i];
+            }
+
+            meanStats.put(activity, stats);
+
+            Log.v(Constants.DEBUG_TAG, "\t"+activity+":\n\tmean   ="+Arrays.toString(stats[0])+"\n\tstd dev="+Arrays.toString(stats[1]));
+        }
+
+    }
+    
     /**
      * Extracts basic features and applies a K-Nearest Network algorithm (K=1).
      * @param data sampled data array
@@ -94,11 +150,13 @@ public class Classifier {
         for (Map.Entry<Float[], String> entry : model) {
         	String activity = entry.getValue();
         	Float[] activityFeatures = entry.getKey();
+        	float[][] activityStats = this.meanStats.get(activity);
         	
             float distance = 0;
 
             for (int i = 0; i < features.length; i++) {
             	temp = features[i] - activityFeatures[i];
+            	temp = temp * (activityFeatures[i] - activityStats[0][i]) / activityStats[1][i];
                 distance += temp*temp;
             }
 

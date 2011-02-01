@@ -170,135 +170,136 @@ public class ClassifierThread extends Thread {
     	//	first rotate samples to world-orientation
     	
 		//	the model data isn't rotated yet...
-		//	TODO: Uncomment this after model data is rotated.
-    	//rotateSamples.rotateToWorldCoordinates(data);
-    	
-		isCalibrated = optionQuery.getCalibrationState();
-		// read sensor standard deviation from the database
-		ssd[0] = optionQuery.getStandardDeviationX();
-		ssd[1] = optionQuery.getStandardDeviationY();
-		ssd[2] = optionQuery.getStandardDeviationZ();
-		valueOfGravity = optionQuery.getCalibrationValue();
-		
-		float[] sd = new float[3];
-		float[] average = { 0, 0, 0 };
-		
-		calcSampleStatistics.assign(data, size);
-		
-		average = calcSampleStatistics.getMean();
-		sd = calcSampleStatistics.getStandardDeviation();
-		
-		// Performs calibration when the calibration state is 0 (false)
-		if (isCalibrated == 0) {
-			calibration = new Calibration();
+    	if (rotateSamples.rotateToWorldCoordinates(data)) {
+	    	
+			isCalibrated = optionQuery.getCalibrationState();
+			// read sensor standard deviation from the database
+			ssd[0] = optionQuery.getStandardDeviationX();
+			ssd[1] = optionQuery.getStandardDeviationY();
+			ssd[2] = optionQuery.getStandardDeviationZ();
+			valueOfGravity = optionQuery.getCalibrationValue();
 			
-			// calibrate only when the previous classification was Uncarried
-			if (lastClassificationName != null
-					&& lastClassificationName.equalsIgnoreCase("uncarried")) {
+			float[] sd = new float[3];
+			float[] average = { 0, 0, 0 };
+			
+			calcSampleStatistics.assign(data, size);
+			
+			average = calcSampleStatistics.getMean();
+			sd = calcSampleStatistics.getStandardDeviation();
+			
+			// Performs calibration when the calibration state is 0 (false)
+			if (isCalibrated == 0) {
+				calibration = new Calibration();
 				
-				Log.i("Calibration", "Calibration " + (5 - (calibration.getCount() - 1)) + " to go");
-				
-				calibration.doCalibration(average, sd);
-				/*
-				 * if calibration is done over the calibration period with
-				 * Uncarried state in a row, then calculate the standard
-				 * deviation over this period, set it as sensor standard
-				 * deviation, and set the calibration state to 1 (true)
-				 */
-				if (calibration.getCount() == CALIBRATION_PERIOD) {
-					float[] tempSSD = new float[3];
-					tempSSD = calibration.getSSD();
-					for (int i = 0; i < 3; i++) {
-						ssd[i] = tempSSD[i];
+				// calibrate only when the previous classification was Uncarried
+				if (lastClassificationName != null
+						&& lastClassificationName.equalsIgnoreCase("uncarried")) {
+					
+					Log.i("Calibration", "Calibration " + (5 - (calibration.getCount() - 1)) + " to go");
+					
+					calibration.doCalibration(average, sd);
+					/*
+					 * if calibration is done over the calibration period with
+					 * Uncarried state in a row, then calculate the standard
+					 * deviation over this period, set it as sensor standard
+					 * deviation, and set the calibration state to 1 (true)
+					 */
+					if (calibration.getCount() == CALIBRATION_PERIOD) {
+						float[] tempSSD = new float[3];
+						tempSSD = calibration.getSSD();
+						for (int i = 0; i < 3; i++) {
+							ssd[i] = tempSSD[i];
+						}
+						valueOfGravity = calibration.getValueOfGravity();
+						Log.i("Calibration", "saved in datastore");
+						optionQuery.setCalibrationState("1");
+						optionQuery.setCalibrationValue(valueOfGravity+"");
+						optionQuery.setStandardDeviationX(ssd[0] + "");
+						optionQuery.setStandardDeviationY(ssd[1] + "");
+						optionQuery.setStandardDeviationZ(ssd[2] + "");
+						
 					}
-					valueOfGravity = calibration.getValueOfGravity();
-					Log.i("Calibration", "saved in datastore");
-					optionQuery.setCalibrationState("1");
-					optionQuery.setCalibrationValue(valueOfGravity+"");
-					optionQuery.setStandardDeviationX(ssd[0] + "");
-					optionQuery.setStandardDeviationY(ssd[1] + "");
-					optionQuery.setStandardDeviationZ(ssd[2] + "");
-					
-				}
-			} else {
-				// when any movement is detected, then calibration is cancelled.
-				Log.i("Calibration", "Canceled");
-				calibration.setCount(0);
-			}
-		}
-		
-		Log.i("Calibration", "ssd[0] : " + ssd[0] + ", " + "ssd[1] : " + ssd[1] + ", "
-				+ "ssd[2] : " + ssd[2]);
-		
-		if (sd[0] < 4 * ssd[0] && sd[1] < 4 * ssd[1] && sd[2] < 4 * ssd[2] && !possiblyUncarried) {
-			
-			lastaverage[0] = average[0];
-			lastaverage[1] = average[1];
-			lastaverage[2] = average[2];
-			
-			possiblyUncarried = true;
-			keepLastAvgAccel = true;
-			Log.i("STATUS", "1possibly uncarried  ");
-			
-		} else
-			if (possiblyUncarried) {
-				Log.i("compare", "CompareX : " + (lastaverage[0] - 4 * ssd[0]) + " <= "
-						+ average[0] + " <= " + (lastaverage[0] + 4 * ssd[0]));
-				Log.i("compare", "CompareY : " + (lastaverage[1] - 4 * ssd[0]) + " <= "
-						+ average[1] + " <= " + (lastaverage[1] + 4 * ssd[0]));
-				Log.i("compare", "CompareZ : " + (lastaverage[2] - 4 * ssd[0]) + " <= "
-						+ average[2] + " <= " + (lastaverage[2] + 4 * ssd[0]));
-				if ((lastaverage[0] - 4 * ssd[0] <= average[0] && lastaverage[0] + 4 * ssd[0] >= average[0])
-						&& (lastaverage[1] - 4 * ssd[0] <= average[1] && lastaverage[1] + 4
-								* ssd[0] >= average[1])
-						&& (lastaverage[2] - 4 * ssd[0] <= average[2] && lastaverage[2] + 4
-								* ssd[0] >= average[2])) {
-					uncarried = true;
-					
 				} else {
-					keepLastAvgAccel = false;
+					// when any movement is detected, then calibration is cancelled.
+					Log.i("Calibration", "Canceled");
+					calibration.setCount(0);
+				}
+			}
+			
+			Log.i("Calibration", "ssd[0] : " + ssd[0] + ", " + "ssd[1] : " + ssd[1] + ", "
+					+ "ssd[2] : " + ssd[2]);
+			
+			if (sd[0] < 4 * ssd[0] && sd[1] < 4 * ssd[1] && sd[2] < 4 * ssd[2] && !possiblyUncarried) {
+				
+				lastaverage[0] = average[0];
+				lastaverage[1] = average[1];
+				lastaverage[2] = average[2];
+				
+				possiblyUncarried = true;
+				keepLastAvgAccel = true;
+				Log.i("STATUS", "1possibly uncarried  ");
+				
+			} else
+				if (possiblyUncarried) {
+					Log.i("compare", "CompareX : " + (lastaverage[0] - 4 * ssd[0]) + " <= "
+							+ average[0] + " <= " + (lastaverage[0] + 4 * ssd[0]));
+					Log.i("compare", "CompareY : " + (lastaverage[1] - 4 * ssd[0]) + " <= "
+							+ average[1] + " <= " + (lastaverage[1] + 4 * ssd[0]));
+					Log.i("compare", "CompareZ : " + (lastaverage[2] - 4 * ssd[0]) + " <= "
+							+ average[2] + " <= " + (lastaverage[2] + 4 * ssd[0]));
+					if ((lastaverage[0] - 4 * ssd[0] <= average[0] && lastaverage[0] + 4 * ssd[0] >= average[0])
+							&& (lastaverage[1] - 4 * ssd[0] <= average[1] && lastaverage[1] + 4
+									* ssd[0] >= average[1])
+							&& (lastaverage[2] - 4 * ssd[0] <= average[2] && lastaverage[2] + 4
+									* ssd[0] >= average[2])) {
+						uncarried = true;
+						
+					} else {
+						keepLastAvgAccel = false;
+						possiblyUncarried = false;
+					}
+					Log.i("STATUS", "2possibly uncarried  ");
+				} else {
 					possiblyUncarried = false;
+					uncarried = false;
+					keepLastAvgAccel = false;
 				}
-				Log.i("STATUS", "2possibly uncarried  ");
-			} else {
-				possiblyUncarried = false;
+			
+			testavQuery.insertTestValues(	sd[0] + "", sd[1] + "", sd[2] + "", lastaverage[0] + "",
+											lastaverage[1] + "", lastaverage[2] + "", average[0] + "",
+											average[1] + "", average[2] + "");
+			Log.i("sd", sd[0] + " " + sd[1] + " " + sd[2] + " ");
+			Log.i("last", lastaverage[0] + " " + lastaverage[1] + " " + lastaverage[2] + " ");
+			Log.i("curr", average[0] + " " + average[1] + " " + average[2] + " ");
+			// ---------------------------------------------------------------------
+			// ---------------------Classification for
+			// Uncarried-------------------------//
+			if (uncarried) {
 				uncarried = false;
-				keepLastAvgAccel = false;
+				keepLastAvgAccel = true;
+				classification = "CLASSIFIED/UNCARRIED";
 			}
-		
-		testavQuery.insertTestValues(	sd[0] + "", sd[1] + "", sd[2] + "", lastaverage[0] + "",
-										lastaverage[1] + "", lastaverage[2] + "", average[0] + "",
-										average[1] + "", average[2] + "");
-		Log.i("sd", sd[0] + " " + sd[1] + " " + sd[2] + " ");
-		Log.i("last", lastaverage[0] + " " + lastaverage[1] + " " + lastaverage[2] + " ");
-		Log.i("curr", average[0] + " " + average[1] + " " + average[2] + " ");
-		// ---------------------------------------------------------------------
-		// ---------------------Classification for
-		// Uncarried-------------------------//
-		if (uncarried) {
-			uncarried = false;
-			keepLastAvgAccel = true;
-			classification = "CLASSIFIED/UNCARRIED";
-		}
-		// ---------------------Classification for the rest of activities by
-		// using Chris's-------------------------//
-		else {
-			// ignore the very first classification
-			if (ignore[0] != 1) {
-				if (!keepLastAvgAccel) {
-					lastaverage[0] = 0;
-					lastaverage[1] = 0;
-					lastaverage[2] = 0;
+			// ---------------------Classification for the rest of activities by
+			// using Chris's-------------------------//
+			else
+			{
+				// ignore the very first classification
+				if (ignore[0] != 1) {
+					if (!keepLastAvgAccel) {
+						lastaverage[0] = 0;
+						lastaverage[1] = 0;
+						lastaverage[2] = 0;
+					}
+					classification = classifier.classifyRotated(data);
+					keepLastAvgAccel = false;
+				} else {
+					classification = "CLASSIFIED/WAITING";
 				}
-				classification = classifier.classify(data,size);
-				keepLastAvgAccel = false;
-			} else {
-				classification = "CLASSIFIED/WAITING";
 			}
-		}
-		// }
-		
-		// Log.i(getClass().getName(), "Classification: " + classification);
+			// }
+			
+			// Log.i(getClass().getName(), "Classification: " + classification);
+    	}
     }
     
 }

@@ -84,6 +84,14 @@ public class CalcStatistics {
 		
 		this.count = samples;
 		
+        for (int i=0; i<dimensions; ++i) {
+            this.sum[i] = 0.0f;
+            this.sumSqr[i] = 0.0f;
+            this.min[i] = Float.POSITIVE_INFINITY;
+            this.max[i] = Float.NEGATIVE_INFINITY;
+            this.mean[i] = 0.0f;
+        }
+		
 		for (int i=0; i<dimensions; ++i) {
 			this.max[i] = Float.NEGATIVE_INFINITY;
 			this.min[i] = Float.POSITIVE_INFINITY;

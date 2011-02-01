@@ -80,4 +80,9 @@ public class Constants {
 	 */
 	public static final String URL_ACTIVITY_POST = "http://testingjungoo.appspot.com/activity";
 
+	
+	/**
+	 *	The number of accelerometer (x,y & z) samples in a batch of samples.
+	 */
+	public static final int NUM_OF_SAMPLES_PER_BATCH = 128;
 }

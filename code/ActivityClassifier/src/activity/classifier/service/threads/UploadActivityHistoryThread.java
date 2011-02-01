@@ -201,7 +201,7 @@ public class UploadActivityHistoryThread extends Thread {
 		        	activityQuery.updateUncheckedItems(itemIDs.get(i), itemNames.get(i), itemStartDates.get(i),itemEndDates.get(i), 1);
         		}
             // if any failure of the response
-		    } catch (IOException ex) {
+		    } catch (Exception ex) {
 	            	Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
 		    } 
 		    itemIDs.clear();

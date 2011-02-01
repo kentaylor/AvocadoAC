@@ -19,8 +19,6 @@ import android.util.Log;
  */
 public class SampleBatch {
 	
-	public static final int NUM_OF_SAMPLES = 128;
-
 	public final float[][] data;
 	private int currentSample;
 	private boolean charging;
@@ -28,7 +26,7 @@ public class SampleBatch {
 	private String lastClassificationName;
 	
 	public SampleBatch() {
-		data = new float[NUM_OF_SAMPLES][3];
+		data = new float[Constants.NUM_OF_SAMPLES_PER_BATCH][3];
 		currentSample = 0;
 	}
 	
@@ -39,8 +37,8 @@ public class SampleBatch {
 	public boolean nextSample() {
 		++currentSample;
 		
-		if (currentSample>=NUM_OF_SAMPLES) {
-			currentSample = NUM_OF_SAMPLES;
+		if (currentSample>=Constants.NUM_OF_SAMPLES_PER_BATCH) {
+			currentSample = Constants.NUM_OF_SAMPLES_PER_BATCH;
 			return false;
 		}
 		else {
