@@ -19,7 +19,7 @@ interface ActivityRecorderBinder {
 
     List<Classification> getClassifications();
     
-    void setWakeLock(boolean wakelock);
+    void setWakeLock();
     
     
 

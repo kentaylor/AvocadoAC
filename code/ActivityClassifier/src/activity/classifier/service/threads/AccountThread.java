@@ -46,24 +46,24 @@ import android.widget.Toast;
  *
  */
 public class AccountThread extends Thread {	
-    
+
 	private Context context;
 	private PhoneInfo phoneInfo;
 	private OptionQueries optionQueries;
 	private String toastString;
 
-    public AccountThread(Context context, PhoneInfo phoneInfo, OptionQueries optionQueries) {
-    	this.context = context;
-    	this.phoneInfo = phoneInfo;
-    	this.optionQueries = optionQueries;
-    }
-    
+	public AccountThread(Context context, PhoneInfo phoneInfo, OptionQueries optionQueries) {
+		this.context = context;
+		this.phoneInfo = phoneInfo;
+		this.optionQueries = optionQueries;
+	}
+
 	public void run() {
 		Looper.prepare();
 		boolean sent = false;
 		do {
 			String accountName = phoneInfo.getAccountName();
-			
+
 			if (accountName==null) {
 				try {
 					Thread.sleep(1000);
@@ -74,60 +74,60 @@ public class AccountThread extends Thread {
 				Toast.makeText(context, toastString, Toast.LENGTH_LONG).show();
 				sent = true;
 			}
-			
+
 		} while (!sent);
 		Looper.loop();
 	}
 
-    /**
-     * A method to post user's Google account, device model name, and IMEI to Web server
-     * @param accountName user's Google account
-     * @param modelName device model name
-     * @param IMEI IMEI number
-     */
-    private void postUserDetail(String accountName, String modelName, String IMEI) {
-    	
-    	if (accountName!=null){
-    		
+	/**
+	 * A method to post user's Google account, device model name, and IMEI to Web server
+	 * @param accountName user's Google account
+	 * @param modelName device model name
+	 * @param IMEI IMEI number
+	 */
+	private void postUserDetail(String accountName, String modelName, String IMEI) {
+
+		if (accountName!=null){
+
 			HttpClient client = new DefaultHttpClient();
 			final HttpPost post = new HttpPost(Constants.URL_USER_DETAILS_POST);
 			final File file = context.getFileStreamPath(Constants.RECORDS_FILE_NAME);
 			final FileEntity entity = new FileEntity(file, "text/plain");
-			
+
 			//post user's information
 			try {
 				post.setHeader("UID",accountName);
-		    	post.setHeader("IMEI",IMEI);
-		    	post.setHeader("Model",modelName);
-	  	        post.setEntity(entity);
-	  	        
-	  	        /*
-	  	         *  integer data type variable, code, store a state value of the Internet response.
-	  	         *  For now, an error occurs when there is just no Internet connection, 
-	  	         *  but will use this variable to filter among the various of the Internet response states.
-	  	         */
-	   	    	int code = new DefaultHttpClient().execute(post).getStatusLine().getStatusCode();
-	   	    	
-	   	    	//set the pop-up message
-	   	    	toastString = "User Information submission completed.\n" +
-	   	    			"   phone model  : "+modelName+"\n" +
-	   	    			"   account name : "+accountName+"\n"+
-	   	    			"   IMEI number  : "+IMEI;
-	   	    	
-	   	    	//set the account state to 1 (true)
-	   	    	optionQueries.setAccountState("1");
-	   	    	Log.i("postUserDetail","posted");
-            
+				post.setHeader("IMEI",IMEI);
+				post.setHeader("Model",modelName);
+				post.setEntity(entity);
+
+				/*
+				 *  integer data type variable, code, store a state value of the Internet response.
+				 *  For now, an error occurs when there is just no Internet connection, 
+				 *  but will use this variable to filter among the various of the Internet response states.
+				 */
+				int code = new DefaultHttpClient().execute(post).getStatusLine().getStatusCode();
+
+				//set the pop-up message
+				toastString = "User Information submission completed.\n" +
+				"   phone model  : "+modelName+"\n" +
+				"   account name : "+accountName+"\n"+
+				"   IMEI number  : "+IMEI;
+
+				//set the account state to 1 (true)
+				optionQueries.setAccountState("1");
+				Log.i("postUserDetail","posted");
+
 			} catch (IOException ex) {
-	                Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
-	                //set the pop-up message
-	                toastString = "Submission failed,\n check phone's Internet connectivity and try again.";
-	                
-	                //set the account state to 0 (false)
-	                optionQueries.setAccountState("0");
-		   	    	Log.i("postUserDetail","Not posted");
-            } 
-    	}
-    }
+				Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
+				//set the pop-up message
+				toastString = "Submission failed,\n check phone's Internet connectivity and try again.";
+
+				//set the account state to 0 (false)
+				optionQueries.setAccountState("0");
+				Log.i("postUserDetail","Not posted");
+			} 
+		}
+	}
 
 }

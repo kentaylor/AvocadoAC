@@ -77,7 +77,7 @@ public class Sampler implements Runnable {
         data[(nextSample * 3 + 1) % 384] = values[1];
         data[(nextSample * 3 + 2) % 384] = values[2];
         
-//        Log.i("accel",values[0]+" "+values[1]+" "+values[2]+" ");
+        Log.i("accel",values[0]+" "+values[1]+" "+values[2]+" ");
         if (++nextSample == 128) {
             reader.stopSampling();
             finishedRunnable.run();

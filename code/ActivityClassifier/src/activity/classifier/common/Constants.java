@@ -1,6 +1,5 @@
 package activity.classifier.common;
 
-import activity.classifier.activity.ActivityRecorderActivity;
 import activity.classifier.service.RecorderService;
 import activity.classifier.service.threads.AccountThread;
 import activity.classifier.service.threads.UploadActivityHistoryThread;
@@ -22,6 +21,8 @@ public class Constants {
 	 * The interval between successive user interface updates in the {@link ActivityRecorderActivity}
 	 */
 	public static final int DELAY_UI_UPDATE = 500;
+	
+	public static final int DELAY_UI_GRAPHIC_UPDATE = 15000;
 	
 	/**
 	 * The interval between successive data uploads in {@link UploadActivityHistoryThread}
