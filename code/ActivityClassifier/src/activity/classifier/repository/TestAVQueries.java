@@ -3,7 +3,7 @@ package activity.classifier.repository;
 import android.content.Context;
 
 public class TestAVQueries extends Queries{
-	
+
 	private DbAdapter dbAdapter;
 
 	/**
@@ -14,11 +14,11 @@ public class TestAVQueries extends Queries{
 		super(context);
 		dbAdapter = super.dbAdapter;
 	}
-	
-	public void insertTestValues(String sdx,String sdy,String sdz, 
+
+	public synchronized  void insertTestValues(String sdx,String sdy,String sdz, 
 			String lastx,String lasty,String lastz,
 			String currx,String curry,String currz) {
-		
+
 		dbAdapter.open();
 		dbAdapter.insertValuesToTestAVTable(sdx, sdy, sdz, lastx, lasty, lastz, currx, curry, currz);
 		dbAdapter.close();

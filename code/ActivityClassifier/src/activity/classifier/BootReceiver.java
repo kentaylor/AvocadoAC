@@ -18,21 +18,21 @@ import android.util.Log;
  * @see android.content.BroadcastReceiver
  */
 public class BootReceiver extends BroadcastReceiver{
-   
+
 	/**
 	 * 
 	 */
 	static final String BOOT_ACTION = "android.intent.action.BOOT_COMPLETED";
-	
+
 
 	@Override 
-    public void onReceive(Context context, Intent intent) { 
-    	
-        if(intent.getAction().equals(BOOT_ACTION)){
-        	Intent i = new Intent(context, RecorderService.class);   
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); 
-            context.startService(i); 
-        	Log.i("Check", "Confirmed running application");
-        }
-    }  
+	public void onReceive(Context context, Intent intent) { 
+
+		if(intent.getAction().equals(BOOT_ACTION)){
+			Intent i = new Intent(context, RecorderService.class);   
+			i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); 
+			context.startService(i); 
+			Log.i("Check", "Confirmed running application");
+		}
+	}  
 }

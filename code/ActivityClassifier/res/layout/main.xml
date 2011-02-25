@@ -3,7 +3,7 @@
     android:orientation="vertical"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent">
-
+<!-- 
     <Button
         android:id="@+id/togglebutton"
         android:layout_width="fill_parent"
@@ -12,12 +12,14 @@
         android:layout_marginTop="5dip"
         android:layout_marginBottom="5dip"
         />
+         -->
      <ListView
         android:id="@+id/list"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         android:layout_weight="1"
         android:drawSelectorOnTop="false"
+       
         />
         
         <!--  

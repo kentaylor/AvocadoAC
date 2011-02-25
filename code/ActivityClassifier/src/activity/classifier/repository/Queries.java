@@ -12,9 +12,9 @@ import android.content.Context;
 public abstract class Queries {
 
 	public DbAdapter dbAdapter;
-	
+
 	private Context context;
-	
+
 	/**
 	 * 
 	 * @param context

@@ -38,7 +38,7 @@ public class Constants {
 	/**
 	 * The delay between two consecutive sampling batches.
 	 */
-	public static final int DELAY_SAMPLE_BATCH = 60*1000; //	1min in ms
+	public static final int DELAY_SAMPLE_BATCH = 30*1000; //	30 secs in ms
 //	public static final int DELAY_SAMPLE_BATCH = 10*1000; //	debugging use
 	
 	/**
@@ -69,17 +69,17 @@ public class Constants {
 	/**
 	 * URL where the user's information is posted.
 	 */
-	public static final String URL_USER_DETAILS_POST = "http://testingjungoo.appspot.com/accountservlet";
+	public static final String URL_USER_DETAILS_POST = "http://activity.urremote.com/accountservlet";
 	
 	/**
 	 * URL to where the user's activity history can be viewed.
 	 */
-	public static final String URL_ACTIVITY_HISTORY = "http://testingjungoo.appspot.com/actihistory.jsp";
+	public static final String URL_ACTIVITY_HISTORY = "http://activity.urremote.com/actihistory.jsp";
 	
 	/**
 	 * URL where the user's activity data is posted
 	 */
-	public static final String URL_ACTIVITY_POST = "http://testingjungoo.appspot.com/activity";
+	public static final String URL_ACTIVITY_POST = "http://activity.urremote.com/activity";
 
 	
 	/**

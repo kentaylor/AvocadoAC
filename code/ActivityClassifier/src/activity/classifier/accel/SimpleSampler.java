@@ -96,6 +96,7 @@ public class SimpleSampler implements Runnable, Sampler {
     		maxTimeDelay = currTimeDelay;
     	*/
     	reader.assignSample(currentBatch.getCurrentSample());
+    	Log.i("accel",currentBatch.getCurrentSample()[0]+" "+currentBatch.getCurrentSample()[1]+" "+currentBatch.getCurrentSample()[2]);
     	if (!currentBatch.nextSample()) {
     		/*
     		Log.v(Constants.DEBUG_TAG, "Cummulative Absolute Sampling Time Error: "+cummTimeError);

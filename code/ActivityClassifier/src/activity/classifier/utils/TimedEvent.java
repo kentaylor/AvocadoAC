@@ -83,7 +83,6 @@ public abstract class TimedEvent implements Runnable {
 	protected abstract void onEnd(long currentTime);
 	
 	
-	@Override
 	public void run() {
 		if (!isRunning) return;
 		
