@@ -29,42 +29,45 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import activity.classifier.accel.AccelReader;
-import activity.classifier.accel.Sampler;
+import activity.classifier.accel.SampleBatch;
+import activity.classifier.accel.SimpleSampler;
 import activity.classifier.common.Classifier;
 
 /**
  * An {@link Aggregator} which automatically samples data from an
- * {@link AccelReader} using a {@link Sampler}, and then classifies it using
+ * {@link AccelReader} using a {@link SimpleSampler}, and then classifies it using
  * a {@link Classifier}.
  * 
  * @author chris
  */
+@Deprecated
 public class AutoAggregator extends Aggregator implements Runnable {
     
-    protected final Sampler sampler;
+    protected final SimpleSampler sampler;
     protected final Classifier classifier;
     protected final Runnable callback;
 
     public AutoAggregator(final Context context, final Handler handler,
             final AccelReader reader, final Set<Entry<Float[], String>> model,
             final Runnable callback) {
-        this.sampler = new Sampler(handler, reader, this);
+        this.sampler = new SimpleSampler(handler, reader, this);
         this.classifier = new Classifier(model);
         this.callback = callback;
     }
 
     /** {@inheritDoc} */
     public void run() {
-        addClassification(classifier.classify(sampler.getData(),128));
+    	SampleBatch sampleBatch = sampler.getSampleBatch();
+        addClassification(classifier.classifyUnrotated(sampleBatch.data));
         callback.run();
     }
 
     public void stop() {
-        sampler.stop();
+//        sampler.stop();
     }
 
     public void start() {
-        sampler.start();
+//        sampler.start(currentBatch)
     }
 
 }

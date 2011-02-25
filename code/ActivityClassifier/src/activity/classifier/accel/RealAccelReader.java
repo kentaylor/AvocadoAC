@@ -27,7 +27,6 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.PowerManager;
 
 /**
  * An accelerometer reader which reads real data from the device's
@@ -36,17 +35,26 @@ import android.os.PowerManager;
  * @author chris
  */
 public class RealAccelReader implements AccelReader {
+	
+	//	actually all we need is a buffer size of 2,
+	//	to make sure that values are being written into one
+	//	array while being read from another array, but we
+	//	can keep 3 just in case the listener is filling
+	//	faster than the samples are being read...
+	private static final int BUFFER_SIZE = 3;
 
     private final SensorEventListener accelListener = new SensorEventListener() {
 
         /** {@inheritDoc} */
 //        @Override
         public void onSensorChanged(final SensorEvent event) {
-            values = new float[]{
-        		event.values[SensorManager.DATA_X],
-            	event.values[SensorManager.DATA_Y],
-                event.values[SensorManager.DATA_Z]
-            };
+        	int nextValues = (currentValues + 1) % BUFFER_SIZE;
+        	synchronized (values[nextValues]) {
+            	values[nextValues][0] = event.values[SensorManager.DATA_X]; 
+            	values[nextValues][1] = event.values[SensorManager.DATA_Y]; 
+            	values[nextValues][2] = event.values[SensorManager.DATA_Z]; 
+			}
+        	currentValues = nextValues;
         }
 
         /** {@inheritDoc} */
@@ -57,12 +65,12 @@ public class RealAccelReader implements AccelReader {
 
     };
 
-    float[] values = new float[]{0, 0, 0};
+    float[][] values = new float[BUFFER_SIZE][3];
+    int currentValues = 0;
     private SensorManager manager;
 
     public RealAccelReader(final Context context) {
         manager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
-
     }
 
     public void startSampling() {
@@ -75,8 +83,12 @@ public class RealAccelReader implements AccelReader {
         manager.unregisterListener(accelListener);
     }
 
-    public float[] getSample() {
-        return values;
+    public void assignSample(float[] values) {
+    	int j = this.currentValues;
+    	synchronized (this.values[j]) {
+        	for (int i=0; i<3; ++i)
+        		values[i] = this.values[j][i];
+		}
     }
 
     @Override

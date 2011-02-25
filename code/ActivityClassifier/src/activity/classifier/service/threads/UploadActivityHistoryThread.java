@@ -33,7 +33,7 @@ import android.util.Log;
  *
  *	<p>
  *	Changes made by Umran: <br>
- *	Class used to be callsed <code>UploadActivityHistory</code>
+ *	Class used to be called <code>UploadActivityHistory</code>
  *	Changed class from using a Timer, to being a thread on its own. As a thread,
  *	the delays involved in uploading content to the internet will be sheltered
  *	from the rest of the application. The thread rests for a period given
@@ -66,6 +66,7 @@ public class UploadActivityHistoryThread extends Thread {
 	 * cancel timer when the background service is destroyed.
 	 */
 	public synchronized void cancelUploads(){
+		//	signal the thread to exit
 		this.shouldExit = true;
 
 		//	not sure what problems may happen if interrupted while uploading
@@ -178,40 +179,43 @@ public class UploadActivityHistoryThread extends Thread {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-			}
-			boolean isUploaded=false;
-			//send un-posted activities with the size, date, and Google account to Web server.
-			try {
 
-
-				Date systemdate = Calendar.getInstance().getTime();
-				String reportDate = df.format(systemdate);
-				post.setHeader("sysdate",reportDate);
-				post.setHeader("size",size+"");
-				post.setHeader("message", message);
-				post.setHeader("UID", accountName);
-				post.setEntity(entity);
-
-				int code = new DefaultHttpClient().execute(post).getStatusLine().getStatusCode();
-				Log.i("m",message);
-				isUploaded=true;
-				// update un-posted items to posted in device repository.
-
-				// if any failure of the response
-			} catch (IOException ex) {
-				isUploaded=false;
-				Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
-			} 
-			if(isUploaded){
-				for(int i=0;i<size;i++){
-					activityQuery.updateUncheckedItems(itemIDs.get(i), itemNames.get(i), itemStartDates.get(i),itemEndDates.get(i), 1);
-				}
-			}
-			itemIDs.clear();
-			itemNames.clear();
-			itemStartDates.clear();
-			itemEndDates.clear();
-		}	
+		    }
+		    
+		    //send un-posted activities with the size, date, and Google account to Web server.
+		    try {
+		    	
+		    	
+		    	Date systemdate = Calendar.getInstance().getTime();
+		    	String reportDate = df.format(systemdate);
+		    	post.setHeader("sysdate",reportDate);
+		    	post.setHeader("size",size+"");
+	  	        post.setHeader("message", message);
+	  	        post.setHeader("UID", accountName);
+	  	        post.setEntity(entity);
+	   	    	
+	  	        int code = new DefaultHttpClient().execute(post).getStatusLine().getStatusCode();
+		        Log.i("m",message);
+		        ArrayList<String[]> items = new ArrayList<String[]>();
+		        for(int i=0;i<size;i++){
+		        	String[] tempItmes = {itemIDs.get(i)+"", itemNames.get(i), itemStartDates.get(i),itemEndDates.get(i), "1"};
+		        	items.add(tempItmes);
+		        }
+		        activityQuery.updateUncheckedItems(items);
+		        // update un-posted items to posted in device repository.
+//		        for(int i=0;i<size;i++){
+//		        	activityQuery.updateUncheckedItems(itemIDs.get(i), itemNames.get(i), itemStartDates.get(i),itemEndDates.get(i), 1);
+//        		}
+            // if any failure of the response
+		    } catch (Exception ex) {
+	            	Log.e(getClass().getName(), "Unable to upload sensor logs", ex);
+		    } 
+		   
+		    itemIDs.clear();
+		    itemNames.clear();
+		    itemStartDates.clear();
+		    itemEndDates.clear();
+	    }	
 	}
 
 	/**

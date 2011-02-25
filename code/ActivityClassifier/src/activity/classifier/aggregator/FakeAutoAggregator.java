@@ -35,6 +35,7 @@ import activity.classifier.accel.AccelReader;
  * 
  * @author chris
  */
+@Deprecated
 public class FakeAutoAggregator extends AutoAggregator {
 
     private static final String[] CLASSIFICATIONS = new String[] {

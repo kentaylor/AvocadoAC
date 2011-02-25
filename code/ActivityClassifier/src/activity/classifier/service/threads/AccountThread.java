@@ -15,10 +15,13 @@ import org.apache.http.impl.client.DefaultHttpClient;
 
 import activity.classifier.common.Constants;
 import activity.classifier.repository.OptionQueries;
+import activity.classifier.rpc.ActivityRecorderBinder;
 import activity.classifier.service.RecorderService;
 import activity.classifier.utils.PhoneInfo;
 import android.content.Context;
+import android.os.Handler;
 import android.os.Looper;
+import android.os.RemoteException;
 import android.util.Log;
 import android.widget.Toast;
 /**
@@ -48,18 +51,22 @@ import android.widget.Toast;
 public class AccountThread extends Thread {	
 
 	private Context context;
+	private ActivityRecorderBinder service;
 	private PhoneInfo phoneInfo;
 	private OptionQueries optionQueries;
 	private String toastString;
+	private boolean shouldExit;
 
-	public AccountThread(Context context, PhoneInfo phoneInfo, OptionQueries optionQueries) {
-		this.context = context;
-		this.phoneInfo = phoneInfo;
-		this.optionQueries = optionQueries;
-	}
-
+    public AccountThread(Context context, ActivityRecorderBinder service, PhoneInfo phoneInfo, OptionQueries optionQueries) {
+    	this.context = context;
+    	this.service = service;
+    	this.phoneInfo = phoneInfo;
+    	this.optionQueries = optionQueries;
+    	this.optionQueries.load();
+    	this.shouldExit = false;
+    }
+    
 	public void run() {
-		Looper.prepare();
 		boolean sent = false;
 		do {
 			String accountName = phoneInfo.getAccountName();
@@ -71,24 +78,36 @@ public class AccountThread extends Thread {
 				}
 			} else {
 				postUserDetail(accountName,phoneInfo.getModel(),phoneInfo.getIMEI());
-				Toast.makeText(context, toastString, Toast.LENGTH_LONG).show();
+				
+				try {
+					service.showServiceToast(toastString);
+				} catch (RemoteException e) {
+					Log.d(Constants.DEBUG_TAG, "Error while attempting to show toast msg from service thread.", e);
+				}
+				
 				sent = true;
 			}
-
-		} while (!sent);
-		Looper.loop();
+			
+		} while (!sent && !shouldExit);
 	}
-
-	/**
-	 * A method to post user's Google account, device model name, and IMEI to Web server
-	 * @param accountName user's Google account
-	 * @param modelName device model name
-	 * @param IMEI IMEI number
-	 */
-	private void postUserDetail(String accountName, String modelName, String IMEI) {
-
-		if (accountName!=null){
-
+	
+	public synchronized void exit() {
+		//	signal the thread to exit
+		this.shouldExit = true;
+		//	interrupt if sleeping
+		this.interrupt();
+	}
+	
+    /**
+     * A method to post user's Google account, device model name, and IMEI to Web server
+     * @param accountName user's Google account
+     * @param modelName device model name
+     * @param IMEI IMEI number
+     */
+    private void postUserDetail(String accountName, String modelName, String IMEI) {
+    	
+    	if (accountName!=null){
+    		
 			HttpClient client = new DefaultHttpClient();
 			final HttpPost post = new HttpPost(Constants.URL_USER_DETAILS_POST);
 			final File file = context.getFileStreamPath(Constants.RECORDS_FILE_NAME);
@@ -115,7 +134,7 @@ public class AccountThread extends Thread {
 				"   IMEI number  : "+IMEI;
 
 				//set the account state to 1 (true)
-				optionQueries.setAccountState("1");
+				optionQueries.setAccountState(true);
 				Log.i("postUserDetail","posted");
 
 			} catch (IOException ex) {
@@ -124,9 +143,11 @@ public class AccountThread extends Thread {
 				toastString = "Submission failed,\n check phone's Internet connectivity and try again.";
 
 				//set the account state to 0 (false)
-				optionQueries.setAccountState("0");
+				optionQueries.setAccountState(false);
 				Log.i("postUserDetail","Not posted");
-			} 
+			} finally{
+				optionQueries.save();
+			}
 		}
 	}
 
